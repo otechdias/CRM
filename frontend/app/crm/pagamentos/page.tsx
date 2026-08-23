@@ -55,30 +55,130 @@ export default function PagamentosPage() {
         {/* Formulário de criação */}
         <div className="card bg-base-200 p-4 mb-6">
           <h3 className="text-xl font-semibold mb-2">Adicionar Pagamento</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <input className="input input-bordered" placeholder="Cliente ID"
-              value={novo.cliente_id || ""}
-              onChange={e => setNovo({ ...novo, cliente_id: Number(e.target.value) })} />
-            <input className="input input-bordered" placeholder="Projeto ID"
-              value={novo.projeto_id || ""}
-              onChange={e => setNovo({ ...novo, projeto_id: Number(e.target.value) })} />
-            <input className="input input-bordered" placeholder="Valor"
-              value={novo.valor || ""}
-              onChange={e => setNovo({ ...novo, valor: Number(e.target.value) })} />
-            <input className="input input-bordered" type="date" placeholder="Data Vencimento"
-              value={novo.data_vencimento || ""}
-              onChange={e => setNovo({ ...novo, data_vencimento: e.target.value })} />
-            <input className="input input-bordered" type="date" placeholder="Data Pagamento"
-              value={novo.data_pagamento || ""}
-              onChange={e => setNovo({ ...novo, data_pagamento: e.target.value })} />
-            <select className="select select-bordered"
-              value={novo.status_pagamento || "pendente"}
-              onChange={e => setNovo({ ...novo, status_pagamento: e.target.value as Pagamento["status_pagamento"] })}>
-              <option value="pendente">Pendente</option>
-              <option value="pago">Pago</option>
-              <option value="atrasado">Atrasado</option>
-            </select>
-            <button className="btn btn-primary col-span-2" onClick={criar}>Salvar</button>
+
+          <div className="grid grid-cols-2 gap-4">
+
+            {/* Cliente */}
+            <div>
+              <label className="label">
+                <span className="label-text">Cliente ID</span>
+              </label>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o ID do cliente"
+                value={novo.cliente_id || ""}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    cliente_id: Number(e.target.value)
+                  })
+                }
+              />
+            </div>
+
+            {/* Projeto */}
+            <div>
+              <label className="label">
+                <span className="label-text">Projeto ID</span>
+              </label>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o ID do projeto"
+                value={novo.projeto_id || ""}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    projeto_id: Number(e.target.value)
+                  })
+                }
+              />
+            </div>
+
+            {/* Valor */}
+            <div>
+              <label className="label">
+                <span className="label-text">Valor</span>
+              </label>
+              <input
+                className="input input-bordered w-full"
+                type="number"
+                placeholder="Digite o valor"
+                value={novo.valor || ""}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    valor: Number(e.target.value)
+                  })
+                }
+              />
+            </div>
+
+            {/* Data de Vencimento */}
+            <div>
+              <label className="label">
+                <span className="label-text">Data de Vencimento</span>
+              </label>
+              <input
+                className="input input-bordered w-full"
+                type="date"
+                value={novo.data_vencimento || ""}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    data_vencimento: e.target.value
+                  })
+                }
+              />
+            </div>
+
+            {/* Data de Pagamento */}
+            <div>
+              <label className="label">
+                <span className="label-text">Data de Pagamento</span>
+              </label>
+              <input
+                className="input input-bordered w-full"
+                type="date"
+                value={novo.data_pagamento || ""}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    data_pagamento: e.target.value
+                  })
+                }
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="label">
+                <span className="label-text">Status do Pagamento</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={novo.status_pagamento || "pendente"}
+                onChange={e =>
+                  setNovo({
+                    ...novo,
+                    status_pagamento:
+                      e.target.value as Pagamento["status_pagamento"]
+                  })
+                }
+              >
+                <option value="pendente">Pendente</option>
+                <option value="pago">Pago</option>
+                <option value="atrasado">Atrasado</option>
+              </select>
+            </div>
+
+            {/* Botão */}
+            <button
+              className="btn btn-primary col-span-2"
+              onClick={criar}
+            >
+              Salvar
+            </button>
+
           </div>
         </div>
 
@@ -122,27 +222,106 @@ export default function PagamentosPage() {
           <div className="modal modal-open">
             <div className="modal-box">
               <h3 className="font-bold text-lg">Editar Pagamento</h3>
-              <div className="flex flex-col gap-2 mt-2">
-                <input className="input input-bordered" placeholder="Valor"
-                  value={editando.valor}
-                  onChange={e => setEditando({ ...editando, valor: Number(e.target.value) })} />
-                <input className="input input-bordered" type="date" placeholder="Data Vencimento"
-                  value={editando.data_vencimento || ""}
-                  onChange={e => setEditando({ ...editando, data_vencimento: e.target.value })} />
-                <input className="input input-bordered" type="date" placeholder="Data Pagamento"
-                  value={editando.data_pagamento || ""}
-                  onChange={e => setEditando({ ...editando, data_pagamento: e.target.value })} />
-                <select className="select select-bordered"
-                  value={editando.status_pagamento}
-                  onChange={e => setEditando({ ...editando, status_pagamento: e.target.value as Pagamento["status_pagamento"] })}>
-                  <option value="pendente">Pendente</option>
-                  <option value="pago">Pago</option>
-                  <option value="atrasado">Atrasado</option>
-                </select>
+
+              <div className="flex flex-col gap-4 mt-4">
+
+                {/* Valor */}
+                <div>
+                  <label className="label">
+                    <span className="label-text">Valor</span>
+                  </label>
+
+                  <input
+                    className="input input-bordered w-full"
+                    type="number"
+                    placeholder="Digite o valor"
+                    value={editando.valor}
+                    onChange={e =>
+                      setEditando({
+                        ...editando,
+                        valor: Number(e.target.value)
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Data de Vencimento */}
+                <div>
+                  <label className="label">
+                    <span className="label-text">Data de Vencimento</span>
+                  </label>
+
+                  <input
+                    className="input input-bordered w-full"
+                    type="date"
+                    value={editando.data_vencimento || ""}
+                    onChange={e =>
+                      setEditando({
+                        ...editando,
+                        data_vencimento: e.target.value
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Data de Pagamento */}
+                <div>
+                  <label className="label">
+                    <span className="label-text">Data de Pagamento</span>
+                  </label>
+
+                  <input
+                    className="input input-bordered w-full"
+                    type="date"
+                    value={editando.data_pagamento || ""}
+                    onChange={e =>
+                      setEditando({
+                        ...editando,
+                        data_pagamento: e.target.value
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="label">
+                    <span className="label-text">Status do Pagamento</span>
+                  </label>
+
+                  <select
+                    className="select select-bordered w-full"
+                    value={editando.status_pagamento}
+                    onChange={e =>
+                      setEditando({
+                        ...editando,
+                        status_pagamento:
+                          e.target.value as Pagamento["status_pagamento"]
+                      })
+                    }
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="pago">Pago</option>
+                    <option value="atrasado">Atrasado</option>
+                  </select>
+                </div>
+
               </div>
+
               <div className="modal-action">
-                <button className="btn btn-primary" onClick={atualizar}>Salvar</button>
-                <button className="btn" onClick={() => setEditando(null)}>Cancelar</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={atualizar}
+                >
+                  Salvar
+                </button>
+
+                <button
+                  className="btn"
+                  onClick={() => setEditando(null)}
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
@@ -151,3 +330,15 @@ export default function PagamentosPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+

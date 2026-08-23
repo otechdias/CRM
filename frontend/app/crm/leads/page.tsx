@@ -25,7 +25,10 @@ export default function LeadsPage() {
   const [novo, setNovo] = useState<Partial<Lead>>({});
   const [editando, setEditando] = useState<Lead | null>(null);
 
-  // Função para aplicar máscara no telefone
+  // =========================
+  // MÁSCARA DE TELEFONE
+  // =========================
+
   const formatarTelefone = (valor?: string | null) => {
     if (!valor) return "";
 
@@ -47,7 +50,10 @@ export default function LeadsPage() {
     return "+55 " + numeros.slice(2);
   };
 
-  // Funções auxiliares para definir cores
+  // =========================
+  // BADGES
+  // =========================
+
   const getStatusBadgeClass = (status?: string | null) => {
     switch (status) {
       case "novo":
@@ -83,7 +89,10 @@ export default function LeadsPage() {
     }
   };
 
-  // Carregar leads
+  // =========================
+  // CARREGAR LEADS
+  // =========================
+
   const carregar = () => {
     api
       .get("/leads/")
@@ -99,7 +108,10 @@ export default function LeadsPage() {
     carregar();
   }, []);
 
-  // Criar lead
+  // =========================
+  // CRIAR LEAD
+  // =========================
+
   const criar = () => {
     api
       .post("/leads/", novo)
@@ -112,13 +124,14 @@ export default function LeadsPage() {
       });
   };
 
-  // Abrir modal de edição
+  // =========================
+  // ABRIR MODAL DE EDIÇÃO
+  // =========================
+
   const iniciarEdicao = (lead: Lead) => {
     setEditando({
       ...lead,
 
-      // Converte null para string vazia
-      // para evitar problemas nos inputs/selects
       nome_empresa: lead.nome_empresa ?? "",
       nome_contato: lead.nome_contato ?? "",
       telefone: lead.telefone ?? "",
@@ -133,7 +146,10 @@ export default function LeadsPage() {
     });
   };
 
-  // Atualizar lead
+  // =========================
+  // ATUALIZAR LEAD
+  // =========================
+
   const atualizar = () => {
     if (!editando) return;
 
@@ -148,7 +164,10 @@ export default function LeadsPage() {
       });
   };
 
-  // Deletar lead
+  // =========================
+  // DELETAR LEAD
+  // =========================
+
   const deletar = (id: number) => {
     api
       .delete(`/leads/${id}`)
@@ -176,174 +195,260 @@ export default function LeadsPage() {
             Adicionar Lead
           </h3>
 
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              className="input input-bordered"
-              placeholder="Empresa"
-              value={novo.nome_empresa || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  nome_empresa: e.target.value,
-                })
-              }
-            />
+          <div className="grid grid-cols-2 gap-4">
 
-            <input
-              className="input input-bordered"
-              placeholder="Contato"
-              value={novo.nome_contato || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  nome_contato: e.target.value,
-                })
-              }
-            />
+            {/* Empresa */}
+            <div>
+              <label className="label">
+                <span className="label-text">Empresa</span>
+              </label>
 
-            <input
-              className="input input-bordered"
-              placeholder="Telefone"
-              value={novo.telefone || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  telefone: formatarTelefone(e.target.value),
-                })
-              }
-            />
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o nome da empresa"
+                value={novo.nome_empresa || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    nome_empresa: e.target.value,
+                  })
+                }
+              />
+            </div>
 
-            <input
-              className="input input-bordered"
-              placeholder="Email"
-              value={novo.email || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  email: e.target.value,
-                })
-              }
-            />
+            {/* Contato */}
+            <div>
+              <label className="label">
+                <span className="label-text">Nome do Contato</span>
+              </label>
 
-            <input
-              className="input input-bordered"
-              placeholder="Cidade"
-              value={novo.cidade || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  cidade: e.target.value,
-                })
-              }
-            />
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o nome do contato"
+                value={novo.nome_contato || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    nome_contato: e.target.value,
+                  })
+                }
+              />
+            </div>
 
-            <input
-              className="input input-bordered"
-              placeholder="Ramo"
-              value={novo.ramo || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  ramo: e.target.value,
-                })
-              }
-            />
+            {/* Telefone */}
+            <div>
+              <label className="label">
+                <span className="label-text">Telefone</span>
+              </label>
 
-            <select
-              className="select select-bordered"
-              value={novo.abordado || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  abordado: e.target.value,
-                })
-              }
-            >
-              <option value="" disabled>
-                Abordado?
-              </option>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o telefone"
+                value={novo.telefone || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    telefone: formatarTelefone(e.target.value),
+                  })
+                }
+              />
+            </div>
 
-              <option value="Sim">Sim</option>
-              <option value="Não">Não</option>
-            </select>
+            {/* E-mail */}
+            <div>
+              <label className="label">
+                <span className="label-text">E-mail</span>
+              </label>
 
-            <select
-              className="select select-bordered"
-              value={novo.site || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  site: e.target.value,
-                })
-              }
-            >
-              <option value="" disabled>
-                Tem Site?
-              </option>
+              <input
+                type="email"
+                className="input input-bordered w-full"
+                placeholder="Digite o e-mail"
+                value={novo.email || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    email: e.target.value,
+                  })
+                }
+              />
+            </div>
 
-              <option value="Sim">Sim</option>
-              <option value="Não">Não</option>
-            </select>
+            {/* Cidade */}
+            <div>
+              <label className="label">
+                <span className="label-text">Cidade</span>
+              </label>
 
-            <select
-              className="select select-bordered"
-              value={novo.status_lead || "novo"}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  status_lead: e.target.value,
-                })
-              }
-            >
-              <option value="" disabled>
-                Status
-              </option>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite a cidade"
+                value={novo.cidade || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    cidade: e.target.value,
+                  })
+                }
+              />
+            </div>
 
-              <option value="novo">Novo</option>
-              <option value="em andamento">
-                Em andamento
-              </option>
-              <option value="perdido">Perdido</option>
-              <option value="convertido">Convertido</option>
-            </select>
+            {/* Ramo */}
+            <div>
+              <label className="label">
+                <span className="label-text">Ramo</span>
+              </label>
 
-            <select
-              className="select select-bordered"
-              value={novo.nivel_interesse || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  nivel_interesse: e.target.value,
-                })
-              }
-            >
-              <option value="">
-                Selecione interesse
-              </option>
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o ramo da empresa"
+                value={novo.ramo || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    ramo: e.target.value,
+                  })
+                }
+              />
+            </div>
 
-              <option value="baixo">Baixo</option>
-              <option value="medio">Médio</option>
-              <option value="alto">Alto</option>
-            </select>
+            {/* Abordado */}
+            <div>
+              <label className="label">
+                <span className="label-text">Abordado?</span>
+              </label>
 
-            <input
-              className="input input-bordered"
-              placeholder="Responsável"
-              value={novo.responsavel || ""}
-              onChange={(e) =>
-                setNovo({
-                  ...novo,
-                  responsavel: e.target.value,
-                })
-              }
-            />
+              <select
+                className="select select-bordered w-full"
+                value={novo.abordado || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    abordado: e.target.value,
+                  })
+                }
+              >
+                <option value="" disabled>
+                  Selecione uma opção
+                </option>
 
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+
+            {/* Site */}
+            <div>
+              <label className="label">
+                <span className="label-text">Tem Site?</span>
+              </label>
+
+              <select
+                className="select select-bordered w-full"
+                value={novo.site || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    site: e.target.value,
+                  })
+                }
+              >
+                <option value="" disabled>
+                  Selecione uma opção
+                </option>
+
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="label">
+                <span className="label-text">Status do Lead</span>
+              </label>
+
+              <select
+                className="select select-bordered w-full"
+                value={novo.status_lead || "novo"}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    status_lead: e.target.value,
+                  })
+                }
+              >
+                <option value="novo">Novo</option>
+
+                <option value="em andamento">
+                  Em andamento
+                </option>
+
+                <option value="perdido">
+                  Perdido
+                </option>
+
+                <option value="convertido">
+                  Convertido
+                </option>
+              </select>
+            </div>
+
+            {/* Nível de Interesse */}
+            <div>
+              <label className="label">
+                <span className="label-text">
+                  Nível de Interesse
+                </span>
+              </label>
+
+              <select
+                className="select select-bordered w-full"
+                value={novo.nivel_interesse || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    nivel_interesse: e.target.value,
+                  })
+                }
+              >
+                <option value="">
+                  Selecione o nível de interesse
+                </option>
+
+                <option value="baixo">Baixo</option>
+                <option value="medio">Médio</option>
+                <option value="alto">Alto</option>
+              </select>
+            </div>
+
+            {/* Responsável */}
+            <div>
+              <label className="label">
+                <span className="label-text">Responsável</span>
+              </label>
+
+              <input
+                className="input input-bordered w-full"
+                placeholder="Digite o responsável"
+                value={novo.responsavel || ""}
+                onChange={(e) =>
+                  setNovo({
+                    ...novo,
+                    responsavel: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            {/* Botão */}
             <button
               className="btn btn-primary col-span-2"
               onClick={criar}
             >
               Salvar
             </button>
+
           </div>
         </div>
 
@@ -456,20 +561,24 @@ export default function LeadsPage() {
         {editando && (
           <div className="modal modal-open">
             <div className="modal-box">
+
               <h3 className="font-bold text-lg">
                 Editar Lead
               </h3>
 
-              <div className="flex flex-col gap-2 mt-2">
+              <div className="flex flex-col gap-4 mt-4">
+
                 {/* Empresa */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Empresa
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Empresa
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Empresa"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o nome da empresa"
                     value={editando.nome_empresa ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -478,17 +587,19 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* Contato */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Contato
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Nome do Contato
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Contato"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o nome do contato"
                     value={editando.nome_contato ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -497,17 +608,19 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* Telefone */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Telefone
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Telefone
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Telefone"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o telefone"
                     value={editando.telefone ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -518,17 +631,20 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* E-mail */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    E-mail
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      E-mail
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Email"
+                    type="email"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o e-mail"
                     value={editando.email ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -537,17 +653,19 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* Cidade */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Cidade
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Cidade
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Cidade"
+                    className="input input-bordered w-full"
+                    placeholder="Digite a cidade"
                     value={editando.cidade ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -556,17 +674,19 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* Ramo */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Ramo
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Ramo
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Ramo"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o ramo da empresa"
                     value={editando.ramo ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -575,13 +695,15 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
 
                 {/* Abordado */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Abordado?
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Abordado?
+                    </span>
+                  </label>
 
                   <select
                     className="select select-bordered w-full"
@@ -597,16 +719,23 @@ export default function LeadsPage() {
                       Selecione
                     </option>
 
-                    <option value="Sim">Sim</option>
-                    <option value="Não">Não</option>
+                    <option value="Sim">
+                      Sim
+                    </option>
+
+                    <option value="Não">
+                      Não
+                    </option>
                   </select>
-                </fieldset>
+                </div>
 
                 {/* Site */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Tem Site?
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Tem Site?
+                    </span>
+                  </label>
 
                   <select
                     className="select select-bordered w-full"
@@ -622,16 +751,23 @@ export default function LeadsPage() {
                       Selecione
                     </option>
 
-                    <option value="Sim">Sim</option>
-                    <option value="Não">Não</option>
+                    <option value="Sim">
+                      Sim
+                    </option>
+
+                    <option value="Não">
+                      Não
+                    </option>
                   </select>
-                </fieldset>
+                </div>
 
                 {/* Status */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Status Lead
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Status do Lead
+                    </span>
+                  </label>
 
                   <div className="flex items-center gap-2">
                     <select
@@ -648,7 +784,9 @@ export default function LeadsPage() {
                         Selecione
                       </option>
 
-                      <option value="novo">Novo</option>
+                      <option value="novo">
+                        Novo
+                      </option>
 
                       <option value="em andamento">
                         Em andamento
@@ -674,13 +812,15 @@ export default function LeadsPage() {
                         (editando.status_lead ?? "").slice(1)}
                     </span>
                   </div>
-                </fieldset>
+                </div>
 
-                {/* Nível de interesse */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Nível de Interesse
-                  </legend>
+                {/* Nível de Interesse */}
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Nível de Interesse
+                    </span>
+                  </label>
 
                   <div className="flex items-center gap-2">
                     <select
@@ -696,7 +836,7 @@ export default function LeadsPage() {
                       }
                     >
                       <option value="">
-                        Selecione interesse
+                        Selecione o interesse
                       </option>
 
                       <option value="baixo">
@@ -725,17 +865,19 @@ export default function LeadsPage() {
                         )}
                     </span>
                   </div>
-                </fieldset>
+                </div>
 
                 {/* Responsável */}
-                <fieldset className="border p-2 rounded">
-                  <legend className="text-sm">
-                    Responsável
-                  </legend>
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Responsável
+                    </span>
+                  </label>
 
                   <input
-                    className="input input-bordered"
-                    placeholder="Responsável"
+                    className="input input-bordered w-full"
+                    placeholder="Digite o responsável"
                     value={editando.responsavel ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -744,7 +886,8 @@ export default function LeadsPage() {
                       })
                     }
                   />
-                </fieldset>
+                </div>
+
               </div>
 
               {/* Ações */}
@@ -763,9 +906,11 @@ export default function LeadsPage() {
                   Cancelar
                 </button>
               </div>
+
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
