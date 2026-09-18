@@ -11,19 +11,98 @@ interface Lead {
   telefone: string | null;
   email: string | null;
   cidade: string | null;
-  status_lead: string | null;
-  nivel_interesse: string | null;
-  responsavel: string | null;
   ramo: string | null;
+  ramo_personalizado: string | null;
   abordado: string | null;
   site: string | null;
+  presenca_digital: string[] | null;
+  tipo_primeiro_contato: string | null;
+  origem_lead: string | null;
+  responsavel: string | null;
+  status_lead: string | null;
+  etapa_comercial: string | null;
+  nivel_interesse: string | null;
+  potencial_valor: string | null;
+  tipo_site: string | null;
+  objetivo_site: string[] | null;
+  prazo_interesse: string | null;
+  decisor: string | null;
+  proxima_acao: string | null;
+  data_proxima_acao: string | null;
+  horario_proxima_acao: string | null;
+  prioridade: string | null;
+  data_primeiro_contato: string | null;
+  data_ultimo_contato: string | null;
+  data_conversao: string | null;
+  motivo_perda: string | null;
+  motivo_perda_personalizado: string | null;
+  observacoes: string | null;
   created_at: string | null;
 }
 
+const MOTIVOS_PERDA_OPCOES = [
+  "Preço",
+  "Sem orçamento",
+  "Sem interesse",
+  "Projeto adiado",
+  "Escolheu concorrente",
+  "Já possui fornecedor",
+  "Não respondeu",
+  "Contato inválido",
+  "Empresa encerrou atividades",
+  "Projeto cancelado",
+  "Prazo incompatível",
+  "Condições de pagamento",
+  "Não conseguimos contato",
+  "Outro",
+];
+
+const RAMOS_OPCOES = [
+  "Academia",
+  "Advocacia",
+  "Agronegócio",
+  "Arquitetura",
+  "Autoescola",
+  "Automotivo",
+  "Barbearia",
+  "Beleza",
+  "Clínica",
+  "Contabilidade",
+  "Construção",
+  "Consultoria",
+  "Dentista",
+  "Educação",
+  "Engenharia",
+  "Eventos",
+  "Farmácia",
+  "Fotografia",
+  "Hotelaria",
+  "Imobiliária",
+  "Indústria",
+  "Informática/Tecnologia",
+  "Marketing",
+  "Oficina Mecânica",
+  "Pet Shop",
+  "Restaurante",
+  "Salão de Beleza",
+  "Saúde",
+  "Serviços",
+  "Turismo",
+  "Varejo",
+  "Veículos",
+  "Outro",
+];
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [novo, setNovo] = useState<Partial<Lead>>({});
+  const [novo, setNovo] = useState<Partial<Lead>>({
+    abordado: "Não",
+    site: "Não",
+    status_lead: "Novo",
+  });
   const [editando, setEditando] = useState<Lead | null>(null);
+  const [erroCriacao, setErroCriacao] = useState<string | null>(null);
+  const [erroModal, setErroModal] = useState<string | null>(null);
 
   // =========================
   // MÁSCARA DE TELEFONE
@@ -55,7 +134,7 @@ export default function LeadsPage() {
   // =========================
 
   const getStatusBadgeClass = (status?: string | null) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case "novo":
         return "badge badge-info";
 
@@ -74,15 +153,19 @@ export default function LeadsPage() {
   };
 
   const getInteresseBadgeClass = (nivel?: string | null) => {
-    switch (nivel) {
+    switch (nivel?.toLowerCase()) {
       case "baixo":
         return "badge badge-secondary";
 
       case "medio":
+      case "médio":
         return "badge badge-primary";
 
       case "alto":
         return "badge badge-success";
+
+      case "muito alto":
+        return "badge badge-accent";
 
       default:
         return "badge";
@@ -113,14 +196,25 @@ export default function LeadsPage() {
   // =========================
 
   const criar = () => {
+    setErroCriacao(null);
+
     api
       .post("/leads/", novo)
       .then(() => {
-        setNovo({});
+        setNovo({
+          abordado: "Não",
+          site: "Não",
+          status_lead: "Novo",
+        });
         carregar();
       })
       .catch((error) => {
         console.error("Erro ao criar lead:", error);
+        const msg =
+          error.response?.data?.erro ||
+          error.response?.data?.detalhes ||
+          "Erro ao criar lead. Verifique os dados.";
+        setErroCriacao(msg);
       });
   };
 
@@ -129,20 +223,23 @@ export default function LeadsPage() {
   // =========================
 
   const iniciarEdicao = (lead: Lead) => {
+    setErroModal(null);
     setEditando({
       ...lead,
-
       nome_empresa: lead.nome_empresa ?? "",
       nome_contato: lead.nome_contato ?? "",
       telefone: lead.telefone ?? "",
       email: lead.email ?? "",
       cidade: lead.cidade ?? "",
-      status_lead: lead.status_lead ?? "novo",
+      status_lead: lead.status_lead ?? "Novo",
       nivel_interesse: lead.nivel_interesse ?? "",
       responsavel: lead.responsavel ?? "",
       ramo: lead.ramo ?? "",
+      ramo_personalizado: lead.ramo_personalizado ?? "",
       abordado: lead.abordado ?? "Não",
       site: lead.site ?? "Não",
+      motivo_perda: lead.motivo_perda ?? "",
+      motivo_perda_personalizado: lead.motivo_perda_personalizado ?? "",
     });
   };
 
@@ -152,6 +249,7 @@ export default function LeadsPage() {
 
   const atualizar = () => {
     if (!editando) return;
+    setErroModal(null);
 
     api
       .put(`/leads/${editando.id}`, editando)
@@ -161,6 +259,11 @@ export default function LeadsPage() {
       })
       .catch((error) => {
         console.error("Erro ao atualizar lead:", error);
+        const msg =
+          error.response?.data?.erro ||
+          error.response?.data?.detalhes ||
+          "Erro ao atualizar lead. Verifique os dados.";
+        setErroModal(msg);
       });
   };
 
@@ -169,6 +272,8 @@ export default function LeadsPage() {
   // =========================
 
   const deletar = (id: number) => {
+    if (!confirm("Tem certeza que deseja excluir este lead?")) return;
+
     api
       .delete(`/leads/${id}`)
       .then(() => {
@@ -191,16 +296,21 @@ export default function LeadsPage() {
         {/* ========================= */}
 
         <div className="card bg-base-200 p-4 mb-6">
-          <h3 className="text-xl font-semibold mb-2">
-            Adicionar Lead
-          </h3>
+          <h3 className="text-xl font-semibold mb-2">Adicionar Lead</h3>
+
+          {erroCriacao && (
+            <div className="alert alert-error mb-4">
+              <span>{erroCriacao}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
-
             {/* Empresa */}
             <div>
               <label className="label">
-                <span className="label-text">Empresa</span>
+                <span className="label-text">
+                  Empresa <span className="text-error">*</span>
+                </span>
               </label>
 
               <input
@@ -299,9 +409,8 @@ export default function LeadsPage() {
                 <span className="label-text">Ramo</span>
               </label>
 
-              <input
-                className="input input-bordered w-full"
-                placeholder="Digite o ramo da empresa"
+              <select
+                className="select select-bordered w-full"
                 value={novo.ramo || ""}
                 onChange={(e) =>
                   setNovo({
@@ -309,8 +418,37 @@ export default function LeadsPage() {
                     ramo: e.target.value,
                   })
                 }
-              />
+              >
+                <option value="">Selecione o ramo</option>
+                {RAMOS_OPCOES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* Ramo Personalizado (se Outro) */}
+            {novo.ramo === "Outro" && (
+              <div className="col-span-2">
+                <label className="label">
+                  <span className="label-text">
+                    Especifique o Ramo <span className="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  className="input input-bordered w-full"
+                  placeholder="Digite o ramo personalizado"
+                  value={novo.ramo_personalizado || ""}
+                  onChange={(e) =>
+                    setNovo({
+                      ...novo,
+                      ramo_personalizado: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
 
             {/* Abordado */}
             <div>
@@ -320,7 +458,7 @@ export default function LeadsPage() {
 
               <select
                 className="select select-bordered w-full"
-                value={novo.abordado || ""}
+                value={novo.abordado || "Não"}
                 onChange={(e) =>
                   setNovo({
                     ...novo,
@@ -328,10 +466,6 @@ export default function LeadsPage() {
                   })
                 }
               >
-                <option value="" disabled>
-                  Selecione uma opção
-                </option>
-
                 <option value="Sim">Sim</option>
                 <option value="Não">Não</option>
               </select>
@@ -345,7 +479,7 @@ export default function LeadsPage() {
 
               <select
                 className="select select-bordered w-full"
-                value={novo.site || ""}
+                value={novo.site || "Não"}
                 onChange={(e) =>
                   setNovo({
                     ...novo,
@@ -353,12 +487,11 @@ export default function LeadsPage() {
                   })
                 }
               >
-                <option value="" disabled>
-                  Selecione uma opção
-                </option>
-
-                <option value="Sim">Sim</option>
                 <option value="Não">Não</option>
+                <option value="Sim">Sim</option>
+                <option value="Em desenvolvimento">Em desenvolvimento</option>
+                <option value="Desatualizado">Desatualizado</option>
+                <option value="Com problemas">Com problemas</option>
               </select>
             </div>
 
@@ -370,7 +503,7 @@ export default function LeadsPage() {
 
               <select
                 className="select select-bordered w-full"
-                value={novo.status_lead || "novo"}
+                value={novo.status_lead || "Novo"}
                 onChange={(e) =>
                   setNovo({
                     ...novo,
@@ -378,28 +511,17 @@ export default function LeadsPage() {
                   })
                 }
               >
-                <option value="novo">Novo</option>
-
-                <option value="em andamento">
-                  Em andamento
-                </option>
-
-                <option value="perdido">
-                  Perdido
-                </option>
-
-                <option value="convertido">
-                  Convertido
-                </option>
+                <option value="Novo">Novo</option>
+                <option value="Em andamento">Em andamento</option>
+                <option value="Perdido">Perdido</option>
+                <option value="Convertido">Convertido</option>
               </select>
             </div>
 
             {/* Nível de Interesse */}
             <div>
               <label className="label">
-                <span className="label-text">
-                  Nível de Interesse
-                </span>
+                <span className="label-text">Nível de Interesse</span>
               </label>
 
               <select
@@ -412,18 +534,16 @@ export default function LeadsPage() {
                   })
                 }
               >
-                <option value="">
-                  Selecione o nível de interesse
-                </option>
-
-                <option value="baixo">Baixo</option>
-                <option value="medio">Médio</option>
-                <option value="alto">Alto</option>
+                <option value="">Selecione o nível de interesse</option>
+                <option value="Baixo">Baixo</option>
+                <option value="Médio">Médio</option>
+                <option value="Alto">Alto</option>
+                <option value="Muito Alto">Muito Alto</option>
               </select>
             </div>
 
             {/* Responsável */}
-            <div>
+            <div className={novo.status_lead === "Perdido" ? "" : "col-span-2"}>
               <label className="label">
                 <span className="label-text">Responsável</span>
               </label>
@@ -441,14 +561,64 @@ export default function LeadsPage() {
               />
             </div>
 
+            {/* Motivo Perda (se Perdido) */}
+            {novo.status_lead === "Perdido" && (
+              <div>
+                <label className="label">
+                  <span className="label-text">
+                    Motivo da Perda <span className="text-error">*</span>
+                  </span>
+                </label>
+
+                <select
+                  className="select select-bordered w-full"
+                  value={novo.motivo_perda || ""}
+                  onChange={(e) =>
+                    setNovo({
+                      ...novo,
+                      motivo_perda: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Selecione o motivo da perda</option>
+                  {MOTIVOS_PERDA_OPCOES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {novo.status_lead === "Perdido" && novo.motivo_perda === "Outro" && (
+              <div className="col-span-2">
+                <label className="label">
+                  <span className="label-text">
+                    Especifique o Motivo da Perda{" "}
+                    <span className="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  className="input input-bordered w-full"
+                  placeholder="Digite o motivo detalhado"
+                  value={novo.motivo_perda_personalizado || ""}
+                  onChange={(e) =>
+                    setNovo({
+                      ...novo,
+                      motivo_perda_personalizado: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
+
             {/* Botão */}
             <button
-              className="btn btn-primary col-span-2"
+              className="btn btn-primary col-span-2 mt-2"
               onClick={criar}
             >
               Salvar
             </button>
-
           </div>
         </div>
 
@@ -479,56 +649,32 @@ export default function LeadsPage() {
             <tbody>
               {leads.map((l) => (
                 <tr key={l.id}>
-                  <td>{l.id || ""}</td>
-
+                  <td>{l.id}</td>
                   <td>{l.nome_empresa || ""}</td>
-
                   <td>{l.nome_contato || ""}</td>
-
-                  <td>
-                    {l.telefone
-                      ? formatarTelefone(l.telefone)
-                      : ""}
-                  </td>
-
+                  <td>{l.telefone ? formatarTelefone(l.telefone) : ""}</td>
                   <td>{l.email || ""}</td>
-
                   <td>{l.cidade || ""}</td>
-
                   <td>{l.ramo || ""}</td>
-
                   <td>{l.abordado || ""}</td>
-
                   <td>{l.site || ""}</td>
 
                   <td>
-                    <span
-                      className={getStatusBadgeClass(
-                        l.status_lead
-                      )}
-                    >
-                      {l.status_lead
-                        ? l.status_lead
-                            .charAt(0)
-                            .toUpperCase() +
-                          l.status_lead.slice(1)
-                        : ""}
+                    <span className={getStatusBadgeClass(l.status_lead)}>
+                      {l.status_lead || ""}
                     </span>
                   </td>
 
                   <td>
-                    <span
-                      className={getInteresseBadgeClass(
-                        l.nivel_interesse
-                      )}
-                    >
-                      {l.nivel_interesse
-                        ? l.nivel_interesse
-                            .charAt(0)
-                            .toUpperCase() +
-                          l.nivel_interesse.slice(1)
-                        : ""}
-                    </span>
+                    {l.nivel_interesse ? (
+                      <span
+                        className={getInteresseBadgeClass(l.nivel_interesse)}
+                      >
+                        {l.nivel_interesse}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
                   </td>
 
                   <td>{l.responsavel || ""}</td>
@@ -560,19 +706,21 @@ export default function LeadsPage() {
 
         {editando && (
           <div className="modal modal-open">
-            <div className="modal-box">
+            <div className="modal-box max-w-2xl">
+              <h3 className="font-bold text-lg">Editar Lead #{editando.id}</h3>
 
-              <h3 className="font-bold text-lg">
-                Editar Lead
-              </h3>
+              {erroModal && (
+                <div className="alert alert-error my-3">
+                  <span>{erroModal}</span>
+                </div>
+              )}
 
-              <div className="flex flex-col gap-4 mt-4">
-
+              <div className="grid grid-cols-2 gap-4 mt-4">
                 {/* Empresa */}
-                <div>
+                <div className="col-span-2">
                   <label className="label">
                     <span className="label-text">
-                      Empresa
+                      Empresa <span className="text-error">*</span>
                     </span>
                   </label>
 
@@ -592,9 +740,7 @@ export default function LeadsPage() {
                 {/* Contato */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Nome do Contato
-                    </span>
+                    <span className="label-text">Nome do Contato</span>
                   </label>
 
                   <input
@@ -613,9 +759,7 @@ export default function LeadsPage() {
                 {/* Telefone */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Telefone
-                    </span>
+                    <span className="label-text">Telefone</span>
                   </label>
 
                   <input
@@ -625,9 +769,7 @@ export default function LeadsPage() {
                     onChange={(e) =>
                       setEditando({
                         ...editando,
-                        telefone: formatarTelefone(
-                          e.target.value
-                        ),
+                        telefone: formatarTelefone(e.target.value),
                       })
                     }
                   />
@@ -636,9 +778,7 @@ export default function LeadsPage() {
                 {/* E-mail */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      E-mail
-                    </span>
+                    <span className="label-text">E-mail</span>
                   </label>
 
                   <input
@@ -658,9 +798,7 @@ export default function LeadsPage() {
                 {/* Cidade */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Cidade
-                    </span>
+                    <span className="label-text">Cidade</span>
                   </label>
 
                   <input
@@ -679,14 +817,11 @@ export default function LeadsPage() {
                 {/* Ramo */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Ramo
-                    </span>
+                    <span className="label-text">Ramo</span>
                   </label>
 
-                  <input
-                    className="input input-bordered w-full"
-                    placeholder="Digite o ramo da empresa"
+                  <select
+                    className="select select-bordered w-full"
                     value={editando.ramo ?? ""}
                     onChange={(e) =>
                       setEditando({
@@ -694,20 +829,47 @@ export default function LeadsPage() {
                         ramo: e.target.value,
                       })
                     }
-                  />
+                  >
+                    <option value="">Selecione o ramo</option>
+                    {RAMOS_OPCOES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                {/* Ramo Personalizado (se Outro) */}
+                {editando.ramo === "Outro" && (
+                  <div className="col-span-2">
+                    <label className="label">
+                      <span className="label-text">
+                        Especifique o Ramo <span className="text-error">*</span>
+                      </span>
+                    </label>
+                    <input
+                      className="input input-bordered w-full"
+                      placeholder="Digite o ramo personalizado"
+                      value={editando.ramo_personalizado ?? ""}
+                      onChange={(e) =>
+                        setEditando({
+                          ...editando,
+                          ramo_personalizado: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* Abordado */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Abordado?
-                    </span>
+                    <span className="label-text">Abordado?</span>
                   </label>
 
                   <select
                     className="select select-bordered w-full"
-                    value={editando.abordado ?? ""}
+                    value={editando.abordado ?? "Não"}
                     onChange={(e) =>
                       setEditando({
                         ...editando,
@@ -715,31 +877,20 @@ export default function LeadsPage() {
                       })
                     }
                   >
-                    <option value="">
-                      Selecione
-                    </option>
-
-                    <option value="Sim">
-                      Sim
-                    </option>
-
-                    <option value="Não">
-                      Não
-                    </option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
                   </select>
                 </div>
 
                 {/* Site */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Tem Site?
-                    </span>
+                    <span className="label-text">Tem Site?</span>
                   </label>
 
                   <select
                     className="select select-bordered w-full"
-                    value={editando.site ?? ""}
+                    value={editando.site ?? "Não"}
                     onChange={(e) =>
                       setEditando({
                         ...editando,
@@ -747,32 +898,26 @@ export default function LeadsPage() {
                       })
                     }
                   >
-                    <option value="">
-                      Selecione
+                    <option value="Não">Não</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Em desenvolvimento">
+                      Em desenvolvimento
                     </option>
-
-                    <option value="Sim">
-                      Sim
-                    </option>
-
-                    <option value="Não">
-                      Não
-                    </option>
+                    <option value="Desatualizado">Desatualizado</option>
+                    <option value="Com problemas">Com problemas</option>
                   </select>
                 </div>
 
                 {/* Status */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Status do Lead
-                    </span>
+                    <span className="label-text">Status do Lead</span>
                   </label>
 
                   <div className="flex items-center gap-2">
                     <select
                       className="select select-bordered flex-1"
-                      value={editando.status_lead ?? ""}
+                      value={editando.status_lead ?? "Novo"}
                       onChange={(e) =>
                         setEditando({
                           ...editando,
@@ -780,36 +925,14 @@ export default function LeadsPage() {
                         })
                       }
                     >
-                      <option value="">
-                        Selecione
-                      </option>
-
-                      <option value="novo">
-                        Novo
-                      </option>
-
-                      <option value="em andamento">
-                        Em andamento
-                      </option>
-
-                      <option value="perdido">
-                        Perdido
-                      </option>
-
-                      <option value="convertido">
-                        Convertido
-                      </option>
+                      <option value="Novo">Novo</option>
+                      <option value="Em andamento">Em andamento</option>
+                      <option value="Perdido">Perdido</option>
+                      <option value="Convertido">Convertido</option>
                     </select>
 
-                    <span
-                      className={getStatusBadgeClass(
-                        editando.status_lead
-                      )}
-                    >
-                      {(editando.status_lead ?? "")
-                        .charAt(0)
-                        .toUpperCase() +
-                        (editando.status_lead ?? "").slice(1)}
+                    <span className={getStatusBadgeClass(editando.status_lead)}>
+                      {editando.status_lead || ""}
                     </span>
                   </div>
                 </div>
@@ -817,17 +940,13 @@ export default function LeadsPage() {
                 {/* Nível de Interesse */}
                 <div>
                   <label className="label">
-                    <span className="label-text">
-                      Nível de Interesse
-                    </span>
+                    <span className="label-text">Nível de Interesse</span>
                   </label>
 
                   <div className="flex items-center gap-2">
                     <select
                       className="select select-bordered flex-1"
-                      value={
-                        editando.nivel_interesse ?? ""
-                      }
+                      value={editando.nivel_interesse ?? ""}
                       onChange={(e) =>
                         setEditando({
                           ...editando,
@@ -835,44 +954,33 @@ export default function LeadsPage() {
                         })
                       }
                     >
-                      <option value="">
-                        Selecione o interesse
-                      </option>
-
-                      <option value="baixo">
-                        Baixo
-                      </option>
-
-                      <option value="medio">
-                        Médio
-                      </option>
-
-                      <option value="alto">
-                        Alto
-                      </option>
+                      <option value="">Sem interesse definido</option>
+                      <option value="Baixo">Baixo</option>
+                      <option value="Médio">Médio</option>
+                      <option value="Alto">Alto</option>
+                      <option value="Muito Alto">Muito Alto</option>
                     </select>
 
-                    <span
-                      className={getInteresseBadgeClass(
-                        editando.nivel_interesse
-                      )}
-                    >
-                      {(editando.nivel_interesse ?? "")
-                        .charAt(0)
-                        .toUpperCase() +
-                        (editando.nivel_interesse ?? "").slice(
-                          1
+                    {editando.nivel_interesse && (
+                      <span
+                        className={getInteresseBadgeClass(
+                          editando.nivel_interesse
                         )}
-                    </span>
+                      >
+                        {editando.nivel_interesse}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Responsável */}
-                <div>
+                <div
+                  className={
+                    editando.status_lead === "Perdido" ? "" : "col-span-2"
+                  }
+                >
                   <label className="label">
-                    <span className="label-text">
-                      Responsável
-                    </span>
+                    <span className="label-text">Responsável</span>
                   </label>
 
                   <input
@@ -888,29 +996,72 @@ export default function LeadsPage() {
                   />
                 </div>
 
+                {/* Motivo Perda (se Perdido) */}
+                {editando.status_lead === "Perdido" && (
+                  <div>
+                    <label className="label">
+                      <span className="label-text">
+                        Motivo da Perda <span className="text-error">*</span>
+                      </span>
+                    </label>
+
+                    <select
+                      className="select select-bordered w-full"
+                      value={editando.motivo_perda ?? ""}
+                      onChange={(e) =>
+                        setEditando({
+                          ...editando,
+                          motivo_perda: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Selecione o motivo da perda</option>
+                      {MOTIVOS_PERDA_OPCOES.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {editando.status_lead === "Perdido" &&
+                  editando.motivo_perda === "Outro" && (
+                    <div className="col-span-2">
+                      <label className="label">
+                        <span className="label-text">
+                          Especifique o Motivo da Perda{" "}
+                          <span className="text-error">*</span>
+                        </span>
+                      </label>
+                      <input
+                        className="input input-bordered w-full"
+                        placeholder="Digite o motivo detalhado"
+                        value={editando.motivo_perda_personalizado ?? ""}
+                        onChange={(e) =>
+                          setEditando({
+                            ...editando,
+                            motivo_perda_personalizado: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
               </div>
 
               {/* Ações */}
               <div className="modal-action">
-                <button
-                  className="btn btn-primary"
-                  onClick={atualizar}
-                >
+                <button className="btn btn-primary" onClick={atualizar}>
                   Salvar
                 </button>
 
-                <button
-                  className="btn"
-                  onClick={() => setEditando(null)}
-                >
+                <button className="btn" onClick={() => setEditando(null)}>
                   Cancelar
                 </button>
               </div>
-
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
