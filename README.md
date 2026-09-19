@@ -5,7 +5,7 @@ Execute:
 
 python -m venv venv
 
-Se não aparecer nenhum erro, execute:
+Se não aparecer nenhum erro, execute no terminal do PowerShell em C:\Users\GABRIEL\Desktop\ANTIGRAVITY\CRM SUPABASE\CRM>:
 
 .\venv\Scripts\Activate.ps1
 
