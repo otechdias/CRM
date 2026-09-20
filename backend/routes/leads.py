@@ -3,6 +3,7 @@ from datetime import datetime, date, time
 
 from backend.database import db
 from backend.models import Lead
+from backend.conversao import converter_lead_em_cliente
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/leads")
 
@@ -93,7 +94,17 @@ STATUS_LEAD = [
     "Em andamento",
     "Perdido",
     "Convertido",
+    "Ex-Cliente",
 ]
+
+# Status controlados pelo sistema:
+# não podem ser escolhidos manualmente.
+#   Convertido -> marcando "Converter em cliente"
+#   Ex-Cliente -> excluindo o cliente vinculado
+STATUS_AUTOMATICOS = {
+    "Convertido",
+    "Ex-Cliente",
+}
 
 ETAPAS_COMERCIAIS = [
     "Novo Lead",
@@ -116,6 +127,7 @@ ETAPAS_COMERCIAIS = [
     "Aguardando Pagamento",
     "Fechado",
     "Perdido",
+    "Ex-Cliente",
 ]
 
 NIVEIS_INTERESSE = [
@@ -269,6 +281,9 @@ MAPA_STATUS = {
     "em andamento": "Em andamento",
     "perdido": "Perdido",
     "convertido": "Convertido",
+    "ex-cliente": "Ex-Cliente",
+    "ex cliente": "Ex-Cliente",
+    "excliente": "Ex-Cliente",
 }
 
 MAPA_INTERESSE = {
@@ -940,6 +955,26 @@ def preparar_dados(data, is_update=False, lead_atual=None):
 
 
 # ============================================================
+# REGRAS DE CONVERSÃO
+# ============================================================
+
+def validar_status_automatico(dados, lead_atual=None):
+    """
+    'Convertido' e 'Ex-Cliente' só podem ser definidos pelo sistema.
+    Manter o valor que o lead já tem é permitido.
+    """
+
+    novo = dados.get("status_lead")
+    atual = lead_atual.status_lead if lead_atual else None
+
+    if novo in STATUS_AUTOMATICOS and novo != atual:
+        raise ValueError(
+            "Os status 'Convertido' e 'Ex-Cliente' são definidos "
+            "automaticamente. Use a opção 'Converter em cliente'."
+        )
+
+
+# ============================================================
 # GET - LISTAR
 # ============================================================
 
@@ -1000,6 +1035,8 @@ def criar_lead():
             is_update=False
         )
 
+        validar_status_automatico(dados)
+
         lead = Lead(**dados)
 
         db.session.add(lead)
@@ -1051,6 +1088,9 @@ def atualizar_lead(id):
             "erro": "Nenhum dado foi enviado."
         }), 400
 
+    # Caixa "Converter em cliente"
+    converter = data.get("converter_em_cliente") is True
+
     try:
 
         dados = preparar_dados(
@@ -1059,6 +1099,23 @@ def atualizar_lead(id):
             lead_atual=lead
         )
 
+        # Lead vinculado a um cliente: status e etapa ficam travados
+        if lead.cliente:
+
+            for campo in ("status_lead", "etapa_comercial"):
+
+                if (
+                    campo in dados
+                    and dados[campo] != getattr(lead, campo)
+                ):
+                    raise ValueError(
+                        "Este lead está vinculado a um cliente. "
+                        "Status e etapa só podem ser alterados "
+                        "excluindo o cliente."
+                    )
+
+        validar_status_automatico(dados, lead)
+
         for campo, valor in dados.items():
 
             setattr(
@@ -1066,6 +1123,9 @@ def atualizar_lead(id):
                 campo,
                 valor
             )
+
+        if converter:
+            converter_lead_em_cliente(lead)
 
         db.session.commit()
 
@@ -1105,6 +1165,17 @@ def excluir_lead(id):
         return jsonify({
             "erro": "Lead não encontrado."
         }), 404
+
+    # Lead vinculado a um cliente não pode ser excluído
+    if lead.cliente:
+
+        return jsonify({
+            "erro": (
+                f"Este lead está vinculado ao cliente "
+                f"'{lead.cliente.nome_empresa}' e não pode ser excluído. "
+                f"Exclua o cliente primeiro: o lead passará a Ex-Cliente."
+            )
+        }), 409
 
     try:
 

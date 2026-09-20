@@ -1,7 +1,19 @@
 from datetime import date, datetime
 from flask import Blueprint, jsonify, request
 from backend.database import db
-from backend.models import Cliente, Lead
+from backend.models import (
+    Cliente,
+    Lead,
+    Interacao,
+    Projeto,
+    Pagamento,
+    PlanoRecorrente,
+)
+from backend.conversao import (
+    validar_conversao,
+    marcar_lead_convertido,
+    marcar_lead_ex_cliente,
+)
 
 
 # ============================================================
@@ -67,11 +79,11 @@ def converter_data(valor):
     if not valor:
         return None
 
-    if isinstance(valor, date):
-        return valor
-
     if isinstance(valor, datetime):
         return valor.date()
+
+    if isinstance(valor, date):
+        return valor
 
     if isinstance(valor, str):
         v = valor.strip()
@@ -85,6 +97,7 @@ def converter_data(valor):
             return None
 
     return None
+
 
 def normalizar_dados(data):
     """
@@ -246,7 +259,7 @@ def obter(id):
 
     try:
 
-        registro = Cliente.query.get(id)
+        registro = db.session.get(Cliente, id)
 
         if not registro:
             return jsonify({
@@ -305,9 +318,9 @@ def criar():
 
     try:
 
-        # --------------------------------------------------------
-        # Extrair lead_id
-        # --------------------------------------------------------
+        # ----------------------------------------------------
+        # Lead de origem (vínculo explícito por lead_id)
+        # ----------------------------------------------------
 
         lead_id = data.pop("lead_id", None)
 
@@ -317,9 +330,22 @@ def criar():
             except (ValueError, TypeError):
                 lead_id = None
 
-        # --------------------------------------------------------
+        lead = None
+
+        if lead_id:
+            lead = db.session.get(Lead, lead_id)
+
+            if not lead:
+                return jsonify({
+                    "erro": "Lead não encontrado."
+                }), 404
+
+            # Já vinculado a outro cliente? Perdido?
+            validar_conversao(lead)
+
+        # ----------------------------------------------------
         # Converter datas
-        # --------------------------------------------------------
+        # ----------------------------------------------------
 
         for campo_data in ["data_conversao", "ultimo_contato", "proximo_contato"]:
             if campo_data in data:
@@ -328,59 +354,30 @@ def criar():
         if not data.get("data_conversao"):
             data["data_conversao"] = date.today()
 
+        # ----------------------------------------------------
+        # Criar cliente e vincular ao lead
+        # ----------------------------------------------------
+
         novo = Cliente(**data)
         db.session.add(novo)
 
-        # --------------------------------------------------------
-        # CONVERSÃO AUTOMÁTICA DE LEAD PARA CLIENTE
-        # --------------------------------------------------------
-
-        conv_date = novo.data_conversao or date.today()
-        lead_convertido_ids = set()
-
-        # 1. Lead explícito por lead_id
-        if lead_id:
-            lead_explicito = Lead.query.get(lead_id)
-            if lead_explicito:
-                lead_explicito.status_lead = "Convertido"
-                lead_explicito.etapa_comercial = "Fechado"
-                if not lead_explicito.data_conversao:
-                    lead_explicito.data_conversao = conv_date
-                lead_convertido_ids.add(lead_explicito.id)
-
-        # 2. Leads ativos correspondentes por nome de empresa, e-mail ou telefone
-        open_leads = Lead.query.filter(Lead.status_lead != "Convertido").all()
-
-        empresa_target = novo.nome_empresa.strip().lower() if novo.nome_empresa else None
-        email_target = novo.email.strip().lower() if novo.email else None
-        tel_target = "".join(filter(str.isdigit, novo.telefone)) if novo.telefone else None
-
-        for l in open_leads:
-            if l.id in lead_convertido_ids:
-                continue
-
-            matched = False
-
-            if empresa_target and l.nome_empresa and l.nome_empresa.strip().lower() == empresa_target:
-                matched = True
-            elif email_target and l.email and l.email.strip().lower() == email_target:
-                matched = True
-            elif tel_target and l.telefone:
-                l_tel = "".join(filter(str.isdigit, l.telefone))
-                if l_tel and l_tel == tel_target:
-                    matched = True
-
-            if matched:
-                l.status_lead = "Convertido"
-                l.etapa_comercial = "Fechado"
-                if not l.data_conversao:
-                    l.data_conversao = conv_date
+        if lead:
+            novo.lead = lead
+            marcar_lead_convertido(lead, novo.data_conversao)
 
         db.session.commit()
 
         return jsonify(
             novo.to_dict()
         ), 201
+
+    except ValueError as e:
+
+        db.session.rollback()
+
+        return jsonify({
+            "erro": str(e)
+        }), 400
 
     except Exception as e:
 
@@ -399,7 +396,7 @@ def criar():
 @clientes_bp.route("/<int:id>", methods=["PUT"])
 def atualizar(id):
 
-    registro = Cliente.query.get(id)
+    registro = db.session.get(Cliente, id)
 
     if not registro:
         return jsonify({
@@ -418,6 +415,9 @@ def atualizar(id):
     # --------------------------------------------------------
 
     data = normalizar_dados(data)
+
+    # O vínculo com o lead não pode ser alterado por aqui
+    data.pop("lead_id", None)
 
     # --------------------------------------------------------
     # Validação
@@ -473,7 +473,7 @@ def atualizar(id):
 @clientes_bp.route("/<int:id>", methods=["DELETE"])
 def deletar(id):
 
-    registro = Cliente.query.get(id)
+    registro = db.session.get(Cliente, id)
 
     if not registro:
         return jsonify({
@@ -482,7 +482,27 @@ def deletar(id):
 
     try:
 
+        # Lead de origem (se houver): vai virar Ex-Cliente
+        lead = registro.lead
+
+        # Desvincular interações do cliente
+        Interacao.query.filter_by(
+            cliente_id=registro.id
+        ).update({"cliente_id": None})
+
+        # Deletar registros vinculados
+        Pagamento.query.filter_by(cliente_id=registro.id).delete()
+        PlanoRecorrente.query.filter_by(cliente_id=registro.id).delete()
+        Projeto.query.filter_by(cliente_id=registro.id).delete()
+
         db.session.delete(registro)
+
+        # O lead permanece em Leads, apenas como Ex-Cliente.
+        # Tudo na mesma transação: se algo falhar, o rollback
+        # desfaz também a mudança no lead.
+        if lead:
+            marcar_lead_ex_cliente(lead)
+
         db.session.commit()
 
         return jsonify({

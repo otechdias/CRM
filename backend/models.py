@@ -182,13 +182,28 @@ class Lead(db.Model):
     )
 
     # --------------------------------------------------------
-    # Relacionamento
+    # Relacionamentos
     # --------------------------------------------------------
 
     interacoes = db.relationship(
         "Interacao",
         back_populates="lead",
         lazy=True
+    )
+
+    # Cliente gerado a partir deste lead (no máximo 1).
+    #
+    # lazy="selectin"      -> carrega os clientes de todos os leads
+    #                         de uma vez na listagem (evita N+1).
+    # passive_deletes="all" -> ao excluir um lead, o SQLAlchemy NÃO
+    #                         tenta zerar clientes.lead_id. Quem bloqueia
+    #                         é a FK no banco (e a rota, com 409).
+    cliente = db.relationship(
+        "Cliente",
+        back_populates="lead",
+        uselist=False,
+        lazy="selectin",
+        passive_deletes="all"
     )
 
     # --------------------------------------------------------
@@ -268,6 +283,13 @@ class Lead(db.Model):
             "motivo_perda_personalizado": self.motivo_perda_personalizado,
 
             "observacoes": self.observacoes,
+
+            # Id do cliente vinculado (None se não houver)
+            "cliente_id": (
+                self.cliente.id
+                if self.cliente
+                else None
+            ),
 
             "created_at": (
                 self.created_at.isoformat()
@@ -351,6 +373,14 @@ class Cliente(db.Model):
         db.String(150)
     )
 
+    # Lead de origem (1 lead -> no máximo 1 cliente)
+    lead_id = db.Column(
+        db.Integer,
+        db.ForeignKey("leads_prospeccao.id"),
+        nullable=True,
+        unique=True
+    )
+
     observacoes = db.Column(
         db.Text
     )
@@ -364,6 +394,11 @@ class Cliente(db.Model):
     # --------------------------------------------------------
     # Relacionamentos
     # --------------------------------------------------------
+
+    lead = db.relationship(
+        "Lead",
+        back_populates="cliente"
+    )
 
     projetos = db.relationship(
         "Projeto",
@@ -434,6 +469,8 @@ class Cliente(db.Model):
             ),
 
             "motivo_inativacao": self.motivo_inativacao,
+
+            "lead_id": self.lead_id,
 
             "observacoes": self.observacoes,
 

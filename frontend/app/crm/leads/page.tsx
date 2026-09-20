@@ -50,6 +50,9 @@ interface Lead {
 
   observacoes: string | null;
 
+  // Id do cliente vinculado (null se o lead não virou cliente)
+  cliente_id: number | null;
+
   created_at: string | null;
 }
 
@@ -146,7 +149,13 @@ const STATUS_LEAD = [
   "Em andamento",
   "Perdido",
   "Convertido",
+  "Ex-Cliente",
 ];
+
+// Status controlados pelo sistema (não podem ser escolhidos manualmente):
+//  - Convertido: marcando "Converter em cliente"
+//  - Ex-Cliente: excluindo o cliente vinculado
+const STATUS_AUTOMATICOS = ["Convertido", "Ex-Cliente"];
 
 const ETAPAS_COMERCIAIS = [
   "Novo Lead",
@@ -169,6 +178,7 @@ const ETAPAS_COMERCIAIS = [
   "Aguardando Pagamento",
   "Fechado",
   "Perdido",
+  "Ex-Cliente",
 ];
 
 const NIVEIS_INTERESSE = [
@@ -361,6 +371,10 @@ export default function LeadsPage() {
   const [editando, setEditando] =
     useState<Lead | null>(null);
 
+  // Caixa "Converter em cliente" do modal de edição
+  const [converterEmCliente, setConverterEmCliente] =
+    useState(false);
+
   const [erroCriacao, setErroCriacao] =
     useState<string | null>(null);
 
@@ -423,6 +437,9 @@ export default function LeadsPage() {
 
       case "convertido":
         return "badge badge-success";
+
+      case "ex-cliente":
+        return "badge badge-neutral";
 
       default:
         return "badge";
@@ -659,6 +676,7 @@ export default function LeadsPage() {
 
   const iniciarEdicao = (lead: Lead) => {
     setErroModal(null);
+    setConverterEmCliente(false);
 
     setEditando({
       ...lead,
@@ -791,15 +809,26 @@ export default function LeadsPage() {
       return;
     }
 
+    if (
+      converterEmCliente &&
+      editando.status_lead === "Perdido"
+    ) {
+      setErroModal(
+        "Um lead perdido não pode ser convertido em cliente. Altere o status antes."
+      );
+      return;
+    }
+
     setSalvando(true);
 
     try {
-      await api.put(
-        `/leads/${editando.id}`,
-        editando
-      );
+      await api.put(`/leads/${editando.id}`, {
+        ...editando,
+        converter_em_cliente: converterEmCliente,
+      });
 
       setEditando(null);
+      setConverterEmCliente(false);
 
       await carregar();
     } catch (error: any) {
@@ -1384,6 +1413,9 @@ export default function LeadsPage() {
                     <option
                       key={opcao}
                       value={opcao}
+                      disabled={STATUS_AUTOMATICOS.includes(
+                        opcao
+                      )}
                     >
                       {opcao}
                     </option>
@@ -2198,6 +2230,14 @@ export default function LeadsPage() {
 
                           <button
                             className="btn btn-error btn-xs"
+                            disabled={
+                              !!lead.cliente_id
+                            }
+                            title={
+                              lead.cliente_id
+                                ? "Lead vinculado a um cliente. Exclua o cliente primeiro."
+                                : undefined
+                            }
                             onClick={() =>
                               deletar(
                                 lead.id
@@ -2702,6 +2742,7 @@ export default function LeadsPage() {
 
                   <select
                     className="select select-bordered w-full"
+                    disabled={!!editando.cliente_id}
                     value={
                       editando.status_lead ??
                       "Novo"
@@ -2729,6 +2770,13 @@ export default function LeadsPage() {
                         <option
                           key={opcao}
                           value={opcao}
+                          disabled={
+                            STATUS_AUTOMATICOS.includes(
+                              opcao
+                            ) &&
+                            opcao !==
+                              editando.status_lead
+                          }
                         >
                           {opcao}
                         </option>
@@ -2747,6 +2795,7 @@ export default function LeadsPage() {
 
                   <select
                     className="select select-bordered w-full"
+                    disabled={!!editando.cliente_id}
                     value={
                       editando.etapa_comercial ??
                       "Novo Lead"
@@ -2923,6 +2972,47 @@ export default function LeadsPage() {
                     )}
                   </select>
                 </div>
+              </div>
+
+              {/* ================= CONVERSÃO EM CLIENTE ================= */}
+
+              <div className="mt-4">
+                <label
+                  className={`label justify-start gap-3 border border-base-300 rounded-lg px-3 ${
+                    editando.cliente_id
+                      ? "opacity-70"
+                      : "cursor-pointer"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-success"
+                    checked={
+                      !!editando.cliente_id ||
+                      converterEmCliente
+                    }
+                    disabled={
+                      !!editando.cliente_id
+                    }
+                    onChange={(e) =>
+                      setConverterEmCliente(
+                        e.target.checked
+                      )
+                    }
+                  />
+
+                  <span className="label-text font-medium">
+                    {editando.cliente_id
+                      ? `Convertido em cliente (#${editando.cliente_id})`
+                      : "Converter em cliente"}
+                  </span>
+                </label>
+
+                <p className="text-xs text-base-content/60 mt-1">
+                  {editando.cliente_id
+                    ? "Para desfazer, exclua o cliente. O lead ficará como Ex-Cliente."
+                    : "Ao salvar, o cliente será criado e o lead ficará como Convertido, etapa Fechado."}
+                </p>
               </div>
 
               {/* ================= PROJETO ================= */}
