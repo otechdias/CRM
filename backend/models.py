@@ -231,6 +231,7 @@ class Lead(db.Model):
             "decisor": self.decisor,
 
             "proxima_acao": self.proxima_acao,
+
             "data_proxima_acao": (
                 self.data_proxima_acao.isoformat()
                 if self.data_proxima_acao
@@ -505,16 +506,20 @@ class Projeto(db.Model):
         db.Numeric(10, 2)
     )
 
+    # O banco utiliza TEXT
     link_projeto = db.Column(
-        db.String(500)
+        db.Text
     )
 
-    link_repositorio = db.Column(
-        db.String(500)
+    # IMPORTANTE:
+    # O nome real da coluna no Supabase é "repositorio".
+    repositorio = db.Column(
+        db.Text
     )
 
+    # O banco utiliza TEXT
     dominio = db.Column(
-        db.String(500)
+        db.Text
     )
 
     observacoes = db.Column(
@@ -591,7 +596,10 @@ class Projeto(db.Model):
             ),
 
             "link_projeto": self.link_projeto,
-            "link_repositorio": self.link_repositorio,
+
+            # Nome igual ao banco de dados
+            "repositorio": self.repositorio,
+
             "dominio": self.dominio,
 
             "observacoes": self.observacoes,
@@ -1054,12 +1062,14 @@ class Script(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
+
             "titulo": self.titulo,
             "categoria": self.categoria,
             "situacao": self.situacao,
             "canal": self.canal,
             "script": self.script,
             "status": self.status,
+
             "created_at": (
                 self.created_at.isoformat()
                 if self.created_at
