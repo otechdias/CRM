@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../../../services/api";
 import Navbar from "../../../components/Navbar";
 
@@ -42,6 +42,18 @@ ultimo_contato: string;
 proximo_contato: string;
 motivo_inativacao: string;
 observacoes: string;
+}
+
+interface LeadItem {
+id: number;
+nome_empresa: string | null;
+nome_contato: string | null;
+telefone: string | null;
+email: string | null;
+cidade: string | null;
+ramo: string | null;
+origem_lead: string | null;
+status_lead: string | null;
 }
 
 const STATUS_CLIENTE = [
@@ -133,12 +145,42 @@ observacoes: "",
 
 export default function ClientesPage() {
 const [clientes, setClientes] = useState<Cliente[]>([]);
+const [leads, setLeads] = useState<LeadItem[]>([]);
+const [leadSelecionadoId, setLeadSelecionadoId] = useState<string>("");
 const [novo, setNovo] = useState<ClienteForm>(FORM_VAZIO);
 const [editando, setEditando] = useState<Cliente | null>(null);
 
 const [carregando, setCarregando] = useState(false);
 const [salvando, setSalvando] = useState(false);
 const [excluindoId, setExcluindoId] = useState<number | null>(null);
+
+// Leads disponíveis para vincular (apenas aqueles que não pertencem a um cliente ativo existente)
+const leadsDisponiveis = useMemo(() => {
+return leads.filter((lead) => {
+  const empresaLead = lead.nome_empresa?.trim().toLowerCase();
+  const emailLead = lead.email?.trim().toLowerCase();
+  const telLead = lead.telefone ? lead.telefone.replace(/\D/g, "") : "";
+
+  const jaExiste = clientes.some((cliente) => {
+    const empresaCliente = cliente.nome_empresa?.trim().toLowerCase();
+    const emailCliente = cliente.email?.trim().toLowerCase();
+    const telCliente = cliente.telefone ? cliente.telefone.replace(/\D/g, "") : "";
+
+    if (empresaLead && empresaCliente && empresaLead === empresaCliente) {
+      return true;
+    }
+    if (emailLead && emailCliente && emailLead === emailCliente) {
+      return true;
+    }
+    if (telLead && telCliente && telLead === telCliente) {
+      return true;
+    }
+    return false;
+  });
+
+  return !jaExiste;
+});
+}, [leads, clientes]);
 
 // ============================================================
 // MÁSCARA DE TELEFONE
@@ -324,18 +366,22 @@ return "badge badge-success";
 };
 
 // ============================================================
-// CARREGAR CLIENTES
+// CARREGAR CLIENTES E LEADS
 // ============================================================
 
 const carregar = async () => {
 try {
 setCarregando(true);
 
+  const [resClientes, resLeads] = await Promise.all([
+    api.get("/clientes/"),
+    api.get("/leads/").catch(() => ({ data: [] })),
+  ]);
 
-  const res = await api.get("/clientes/");
-  setClientes(res.data);
+  setClientes(resClientes.data);
+  setLeads(resLeads.data || []);
 } catch (error) {
-  console.error("Erro ao carregar clientes:", error);
+  console.error("Erro ao carregar dados:", error);
   alert("Não foi possível carregar os clientes.");
 } finally {
   setCarregando(false);
@@ -347,6 +393,33 @@ setCarregando(true);
 useEffect(() => {
 carregar();
 }, []);
+
+// ============================================================
+// SELECIONAR E AUTO-PREENCHER LEAD
+// ============================================================
+
+const selecionarLead = (leadIdStr: string) => {
+setLeadSelecionadoId(leadIdStr);
+
+if (!leadIdStr) return;
+
+const lead = leads.find((item) => item.id === Number(leadIdStr));
+if (!lead) return;
+
+const hoje = new Date().toISOString().split("T")[0];
+
+setNovo((anterior) => ({
+  ...anterior,
+  nome_empresa: lead.nome_empresa || anterior.nome_empresa,
+  nome_contato: lead.nome_contato || anterior.nome_contato,
+  telefone: lead.telefone ? formatarTelefone(lead.telefone) : anterior.telefone,
+  email: lead.email || anterior.email,
+  cidade: lead.cidade || anterior.cidade,
+  ramo: lead.ramo || anterior.ramo,
+  origem_cliente: lead.origem_lead || anterior.origem_cliente,
+  data_conversao: anterior.data_conversao || hoje,
+}));
+};
 
 // ============================================================
 // ALTERAR FORMULÁRIO
@@ -392,19 +465,23 @@ try {
 
   const payload = {
     ...novo,
+    lead_id: leadSelecionadoId ? Number(leadSelecionadoId) : null,
     valor_medio:
       novo.valor_medio === ""
         ? null
         : Number(novo.valor_medio),
+    data_conversao:
+      novo.data_conversao || new Date().toISOString().split("T")[0],
   };
 
   await api.post("/clientes/", payload);
 
   setNovo({ ...FORM_VAZIO });
+  setLeadSelecionadoId("");
 
   await carregar();
 
-  alert("Cliente criado com sucesso.");
+  alert("Cliente criado com sucesso! O Lead foi convertido para Cliente.");
 } catch (error: any) {
   console.error("Erro ao criar cliente:", error);
 
@@ -595,6 +672,32 @@ return ( <div> <Navbar />
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {/* Importar de Lead */}
+        <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-base-300/40 p-4 rounded-lg border border-base-300">
+          <label className="label py-0 pb-1">
+            <span className="label-text font-semibold text-primary">
+              Vincular / Importar Lead (Opcional)
+            </span>
+          </label>
+          <select
+            className="select select-bordered w-full"
+            value={leadSelecionadoId}
+            onChange={(e) => selecionarLead(e.target.value)}
+          >
+            <option value="">
+              -- Selecione um Lead em aberto para converter em Cliente --
+            </option>
+            {leadsDisponiveis.map((lead) => (
+              <option key={lead.id} value={lead.id}>
+                {lead.nome_empresa || `Lead #${lead.id}`} {lead.nome_contato ? `(${lead.nome_contato})` : ""} - Status: {lead.status_lead || "Novo"}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-base-content/60 mt-1">
+            Ao selecionar um lead, os dados serão preenchidos automaticamente e o lead será convertido para Cliente no sistema.
+          </p>
+        </div>
 
         {/* Empresa */}
 

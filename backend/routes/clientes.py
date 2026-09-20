@@ -1,6 +1,7 @@
+from datetime import date, datetime
 from flask import Blueprint, jsonify, request
 from backend.database import db
-from backend.models import Cliente
+from backend.models import Cliente, Lead
 
 
 # ============================================================
@@ -35,6 +36,7 @@ TIPOS_CLIENTE = [
 # ============================================================
 
 CAMPOS_PERMITIDOS = {
+    "lead_id",
     "nome_empresa",
     "nome_contato",
     "telefone",
@@ -57,6 +59,32 @@ CAMPOS_PERMITIDOS = {
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
+
+def converter_data(valor):
+    """
+    Converte valor para objeto date.
+    """
+    if not valor:
+        return None
+
+    if isinstance(valor, date):
+        return valor
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, str):
+        v = valor.strip()
+        if not v:
+            return None
+        if "T" in v:
+            v = v.split("T")[0]
+        try:
+            return datetime.strptime(v, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    return None
 
 def normalizar_dados(data):
     """
@@ -277,9 +305,77 @@ def criar():
 
     try:
 
-        novo = Cliente(**data)
+        # --------------------------------------------------------
+        # Extrair lead_id
+        # --------------------------------------------------------
 
+        lead_id = data.pop("lead_id", None)
+
+        if lead_id is not None:
+            try:
+                lead_id = int(lead_id)
+            except (ValueError, TypeError):
+                lead_id = None
+
+        # --------------------------------------------------------
+        # Converter datas
+        # --------------------------------------------------------
+
+        for campo_data in ["data_conversao", "ultimo_contato", "proximo_contato"]:
+            if campo_data in data:
+                data[campo_data] = converter_data(data[campo_data])
+
+        if not data.get("data_conversao"):
+            data["data_conversao"] = date.today()
+
+        novo = Cliente(**data)
         db.session.add(novo)
+
+        # --------------------------------------------------------
+        # CONVERSÃO AUTOMÁTICA DE LEAD PARA CLIENTE
+        # --------------------------------------------------------
+
+        conv_date = novo.data_conversao or date.today()
+        lead_convertido_ids = set()
+
+        # 1. Lead explícito por lead_id
+        if lead_id:
+            lead_explicito = Lead.query.get(lead_id)
+            if lead_explicito:
+                lead_explicito.status_lead = "Convertido"
+                lead_explicito.etapa_comercial = "Fechado"
+                if not lead_explicito.data_conversao:
+                    lead_explicito.data_conversao = conv_date
+                lead_convertido_ids.add(lead_explicito.id)
+
+        # 2. Leads ativos correspondentes por nome de empresa, e-mail ou telefone
+        open_leads = Lead.query.filter(Lead.status_lead != "Convertido").all()
+
+        empresa_target = novo.nome_empresa.strip().lower() if novo.nome_empresa else None
+        email_target = novo.email.strip().lower() if novo.email else None
+        tel_target = "".join(filter(str.isdigit, novo.telefone)) if novo.telefone else None
+
+        for l in open_leads:
+            if l.id in lead_convertido_ids:
+                continue
+
+            matched = False
+
+            if empresa_target and l.nome_empresa and l.nome_empresa.strip().lower() == empresa_target:
+                matched = True
+            elif email_target and l.email and l.email.strip().lower() == email_target:
+                matched = True
+            elif tel_target and l.telefone:
+                l_tel = "".join(filter(str.isdigit, l.telefone))
+                if l_tel and l_tel == tel_target:
+                    matched = True
+
+            if matched:
+                l.status_lead = "Convertido"
+                l.etapa_comercial = "Fechado"
+                if not l.data_conversao:
+                    l.data_conversao = conv_date
+
         db.session.commit()
 
         return jsonify(
@@ -350,6 +446,8 @@ def atualizar(id):
         # ----------------------------------------------------
 
         for campo, valor in data.items():
+            if campo in ["data_conversao", "ultimo_contato", "proximo_contato"]:
+                valor = converter_data(valor)
             setattr(registro, campo, valor)
 
         db.session.commit()
