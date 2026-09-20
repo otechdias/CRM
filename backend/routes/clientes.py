@@ -485,6 +485,15 @@ def deletar(id):
         # Lead de origem (se houver): vai virar Ex-Cliente
         lead = registro.lead
 
+        # Se existe lead de origem, o histórico de interações do
+        # cliente passa a pertencer ao lead (que continua existindo).
+        # Só move as que ainda não estão ligadas a nenhum lead.
+        if lead:
+            Interacao.query.filter_by(
+                cliente_id=registro.id,
+                lead_id=None
+            ).update({"lead_id": lead.id})
+
         # Desvincular interações do cliente
         Interacao.query.filter_by(
             cliente_id=registro.id
