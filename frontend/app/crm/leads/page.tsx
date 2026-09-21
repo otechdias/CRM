@@ -447,7 +447,77 @@ export default function LeadsPage() {
     }
   };
 
-  const getInteresseBadgeClass = (
+  const getEtapaBadgeClass = (etapa?: string | null) => {
+  switch (etapa?.toLowerCase()) {
+    case "novo lead":
+      return "badge badge-info whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "primeiro contato":
+      return "badge badge-primary whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "aguardando resposta":
+      return "badge badge-warning whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "respondeu":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "qualificação":
+      return "badge badge-secondary whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "qualificado":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "briefing pendente":
+      return "badge badge-warning whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "briefing agendado":
+      return "badge badge-primary whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "briefing realizado":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "proposta em preparação":
+      return "badge badge-secondary whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "orçamento enviado":
+      return "badge badge-accent whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "aguardando retorno do orçamento":
+      return "badge badge-warning whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "negociação":
+      return "badge badge-accent whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "aguardando decisão":
+      return "badge badge-warning whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "aprovado verbalmente":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "contrato enviado":
+      return "badge badge-primary whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "contrato assinado":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "aguardando pagamento":
+      return "badge badge-warning whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "fechado":
+      return "badge badge-success whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "perdido":
+      return "badge badge-error whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    case "ex-cliente":
+      return "badge badge-neutral whitespace-nowrap inline-flex items-center justify-center text-center";
+
+    default:
+      return "badge badge-outline whitespace-nowrap inline-flex items-center justify-center text-center";
+  }
+};
+
+const getInteresseBadgeClass = (
     nivel?: string | null
   ) => {
     switch (nivel?.toLowerCase()) {
@@ -2166,14 +2236,18 @@ export default function LeadsPage() {
                             "-"}
                       </td>
 
-                      <td>
-                        <span className="badge badge-outline">
-                          {lead.etapa_comercial ||
-                            "-"}
+                      
+                      <td className="whitespace-nowrap">
+                        <span
+                          className={getEtapaBadgeClass(
+                            lead.etapa_comercial
+                          )}
+                        >
+                          {lead.etapa_comercial || "-"}
                         </span>
                       </td>
 
-                      <td>
+                      <td className="whitespace-nowrap">
                         <span
                           className={getStatusBadgeClass(
                             lead.status_lead
@@ -2184,7 +2258,7 @@ export default function LeadsPage() {
                         </span>
                       </td>
 
-                      <td>
+                      <td className="whitespace-nowrap">
                         {lead.nivel_interesse ? (
                           <span
                             className={getInteresseBadgeClass(
@@ -2200,7 +2274,7 @@ export default function LeadsPage() {
                         )}
                       </td>
 
-                      <td>
+                      <td className="whitespace-nowrap">
                         <span
                           className={getPrioridadeBadgeClass(
                             lead.prioridade

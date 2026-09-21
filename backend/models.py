@@ -1,5 +1,3 @@
-#MODELS.PY
-
 from backend.database import db
 
 
@@ -187,10 +185,21 @@ class Lead(db.Model):
     # Relacionamentos
     # --------------------------------------------------------
 
+    # Histórico de interações do lead.
+    #
+    # cascade="save-update, merge, delete" + passive_deletes=True
+    #   -> ao excluir o lead, as interações dele são excluídas pelo
+    #      banco (ON DELETE CASCADE). O SQLAlchemy NÃO tenta zerar
+    #      interacoes.lead_id (o que violaria o CHECK de "exatamente
+    #      um vínculo").
+    # Não usar "delete-orphan": a Interacao tem dois pais possíveis
+    # (Lead e Cliente) e o SQLAlchemy a trataria como órfã.
     interacoes = db.relationship(
         "Interacao",
         back_populates="lead",
-        lazy=True
+        lazy=True,
+        cascade="save-update, merge, delete",
+        passive_deletes=True
     )
 
     # Cliente gerado a partir deste lead (no máximo 1).
@@ -420,10 +429,14 @@ class Cliente(db.Model):
         lazy=True
     )
 
+    # Histórico de interações do cliente (mesma lógica do Lead:
+    # ao excluir o cliente, o banco exclui as interações dele).
     interacoes = db.relationship(
         "Interacao",
         back_populates="cliente",
-        lazy=True
+        lazy=True,
+        cascade="save-update, merge, delete",
+        passive_deletes=True
     )
 
     # --------------------------------------------------------
@@ -936,6 +949,9 @@ class PlanoRecorrente(db.Model):
 # ============================================================
 # 6. INTERAÇÕES
 # ============================================================
+#
+# Cada interação pertence a EXATAMENTE UM lead OU UM cliente
+# (garantido pela rota e pelo CHECK interacoes_um_vinculo_chk).
 
 class Interacao(db.Model):
     __tablename__ = "interacoes"
@@ -947,12 +963,18 @@ class Interacao(db.Model):
 
     lead_id = db.Column(
         db.Integer,
-        db.ForeignKey("leads_prospeccao.id")
+        db.ForeignKey(
+            "leads_prospeccao.id",
+            ondelete="CASCADE"
+        )
     )
 
     cliente_id = db.Column(
         db.Integer,
-        db.ForeignKey("clientes.id")
+        db.ForeignKey(
+            "clientes.id",
+            ondelete="CASCADE"
+        )
     )
 
     responsavel = db.Column(
@@ -987,6 +1009,12 @@ class Interacao(db.Model):
     # Mantido para compatibilidade com a estrutura anterior
     resumo = db.Column(
         db.Text
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        server_default=db.func.now()
     )
 
     # --------------------------------------------------------
@@ -1048,7 +1076,13 @@ class Interacao(db.Model):
 
             "descricao": self.descricao,
 
-            "resumo": self.resumo
+            "resumo": self.resumo,
+
+            "created_at": (
+                self.created_at.isoformat()
+                if self.created_at
+                else None
+            )
         }
 
 
