@@ -1,15 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../../../services/api";
 import Navbar from "../../../components/Navbar";
+
+/* =========================================================
+   TIPOS
+========================================================= */
 
 interface Plano {
   id: number;
   cliente_id: number;
-  nome_plano: string;
-  valor_mensal: number;
-  status_plano: string;
+  cliente_nome?: string | null;
+
+  nome_plano: string | null;
+  valor_mensal: number | null;
+  dia_cobranca: number | null;
+  status_plano: string | null;
+  tipo_cobranca: string | null;
+
+  data_inicio: string | null;
+  proximo_vencimento: string | null;
+  forma_pagamento: string | null;
+
+  data_cancelamento: string | null;
+  motivo_cancelamento: string | null;
+
+  observacoes: string | null;
+  created_at: string | null;
 }
 
 interface Cliente {
@@ -17,263 +35,437 @@ interface Cliente {
   nome_empresa: string;
 }
 
+interface PlanoForm {
+  cliente_id: string;
+  nome_plano: string;
+  valor_mensal: string;
+  dia_cobranca: string;
+  status_plano: string;
+  tipo_cobranca: string;
+  data_inicio: string;
+  proximo_vencimento: string;
+  forma_pagamento: string;
+  data_cancelamento: string;
+  motivo_cancelamento: string;
+  observacoes: string;
+}
+
+/* =========================================================
+   OPÇÕES (iguais às do backend)
+========================================================= */
+
+const NOMES_PLANO = [
+  "Plano Essencial",
+  "Plano Pro",
+  "Plano Pro Max",
+];
+
+const STATUS_PLANO = ["Ativo", "Pausado", "Cancelado"];
+
+const TIPOS_COBRANCA = [
+  "Mensal",
+  "Trimestral",
+  "Semestral",
+  "Anual",
+];
+
+const FORMAS_PAGAMENTO = [
+  "PIX",
+  "Boleto",
+  "Cartão de crédito",
+  "Cartão de débito",
+  "Transferência bancária",
+  "Dinheiro",
+];
+
+/* =========================================================
+   FUNÇÕES AUXILIARES
+========================================================= */
+
+const hoje = () => new Date().toISOString().split("T")[0];
+
+const formVazio = (): PlanoForm => ({
+  cliente_id: "",
+  nome_plano: "",
+  valor_mensal: "",
+  dia_cobranca: "",
+  status_plano: "Ativo",
+  tipo_cobranca: "Mensal",
+  data_inicio: hoje(),
+  proximo_vencimento: "",
+  forma_pagamento: "",
+  data_cancelamento: "",
+  motivo_cancelamento: "",
+  observacoes: "",
+});
+
+const paraForm = (plano: Plano): PlanoForm => ({
+  cliente_id: String(plano.cliente_id),
+  nome_plano: plano.nome_plano ?? "",
+  valor_mensal:
+    plano.valor_mensal !== null &&
+    plano.valor_mensal !== undefined
+      ? String(plano.valor_mensal)
+      : "",
+  dia_cobranca: plano.dia_cobranca
+    ? String(plano.dia_cobranca)
+    : "",
+  status_plano: plano.status_plano ?? "Ativo",
+  tipo_cobranca: plano.tipo_cobranca ?? "Mensal",
+  data_inicio: plano.data_inicio ?? "",
+  proximo_vencimento: plano.proximo_vencimento ?? "",
+  forma_pagamento: plano.forma_pagamento ?? "",
+  data_cancelamento: plano.data_cancelamento ?? "",
+  motivo_cancelamento: plano.motivo_cancelamento ?? "",
+  observacoes: plano.observacoes ?? "",
+});
+
+const montarPayload = (form: PlanoForm) => {
+  const cancelado = form.status_plano === "Cancelado";
+
+  return {
+    cliente_id: Number(form.cliente_id),
+    nome_plano: form.nome_plano,
+    valor_mensal:
+      form.valor_mensal === ""
+        ? null
+        : Number(form.valor_mensal),
+    dia_cobranca:
+      form.dia_cobranca === ""
+        ? null
+        : Number(form.dia_cobranca),
+    status_plano: form.status_plano,
+    tipo_cobranca: form.tipo_cobranca,
+    data_inicio: form.data_inicio || null,
+    // Vazio: o backend calcula pelo dia de cobrança
+    proximo_vencimento: cancelado
+      ? null
+      : form.proximo_vencimento || null,
+    forma_pagamento: form.forma_pagamento || null,
+    data_cancelamento: cancelado
+      ? form.data_cancelamento || null
+      : null,
+    motivo_cancelamento: cancelado
+      ? form.motivo_cancelamento.trim() || null
+      : null,
+    observacoes: form.observacoes.trim() || null,
+  };
+};
+
+const validar = (form: PlanoForm): string | null => {
+  if (!form.cliente_id) {
+    return "Selecione um cliente.";
+  }
+
+  if (!form.nome_plano) {
+    return "Selecione o nome do plano.";
+  }
+
+  if (
+    form.valor_mensal === "" ||
+    Number.isNaN(Number(form.valor_mensal)) ||
+    Number(form.valor_mensal) < 0
+  ) {
+    return "Informe um valor mensal válido.";
+  }
+
+  const dia = Number(form.dia_cobranca);
+
+  if (
+    !form.dia_cobranca ||
+    !Number.isInteger(dia) ||
+    dia < 1 ||
+    dia > 31
+  ) {
+    return "Informe o dia de cobrança (1 a 31).";
+  }
+
+  if (form.status_plano === "Cancelado") {
+    if (!form.motivo_cancelamento.trim()) {
+      return "Informe o motivo do cancelamento.";
+    }
+
+    if (
+      form.data_cancelamento &&
+      form.data_inicio &&
+      form.data_cancelamento < form.data_inicio
+    ) {
+      return "A data de cancelamento não pode ser anterior à data de início.";
+    }
+  }
+
+  return null;
+};
+
+const extrairErro = (error: unknown, padrao: string) => {
+  const e = error as {
+    response?: {
+      data?: { erro?: string; detalhes?: string };
+    };
+  };
+
+  return (
+    e?.response?.data?.erro ||
+    e?.response?.data?.detalhes ||
+    padrao
+  );
+};
+
+const formatarMoeda = (valor?: number | null) => {
+  if (valor === null || valor === undefined) {
+    return "-";
+  }
+
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+};
+
+const formatarData = (data?: string | null) => {
+  if (!data) return "-";
+
+  const [ano, mes, dia] = data.split("T")[0].split("-");
+
+  if (!ano || !mes || !dia) return data;
+
+  return `${dia}/${mes}/${ano}`;
+};
+
+const getStatusBadgeClass = (status?: string | null) => {
+  switch (status?.toLowerCase()) {
+    case "ativo":
+      return "badge badge-success";
+
+    case "pausado":
+      return "badge badge-warning";
+
+    case "cancelado":
+      return "badge badge-error";
+
+    default:
+      return "badge";
+  }
+};
+
+/* =========================================================
+   COMPONENTE
+========================================================= */
+
 export default function PlanosPage() {
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
-  const [novo, setNovo] = useState<Partial<Plano>>({});
-  const [editando, setEditando] = useState<Plano | null>(null);
-
-  const [modalAdicionar, setModalAdicionar] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
 
   const [carregando, setCarregando] = useState(false);
+  const [erroLista, setErroLista] =
+    useState<string | null>(null);
 
-  // =========================
-  // FORMATAÇÃO DE VALOR
-  // =========================
+  const [modalAberto, setModalAberto] = useState(false);
+  const [editandoId, setEditandoId] =
+    useState<number | null>(null);
+  const [form, setForm] = useState<PlanoForm>(formVazio);
+  const [erroModal, setErroModal] =
+    useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
 
-  const formatarMoeda = (valor?: number | null) => {
-    if (valor === null || valor === undefined) {
-      return "R$ 0,00";
-    }
+  const [excluindoId, setExcluindoId] =
+    useState<number | null>(null);
 
-    return valor.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-  };
+  /* =======================================================
+     CARREGAR DADOS
+  ======================================================= */
 
-  // =========================
-  // BADGE DE STATUS
-  // =========================
-
-  const getStatusBadgeClass = (status?: string) => {
-    switch (status) {
-      case "ativo":
-        return "badge badge-success";
-
-      case "inativo":
-        return "badge badge-error";
-
-      case "pausado":
-        return "badge badge-warning";
-
-      default:
-        return "badge";
-    }
-  };
-
-  // =========================
-  // NOME DO CLIENTE
-  // =========================
-
-  const getNomeCliente = (clienteId: number) => {
-    const cliente = clientes.find(
-      (c) => c.id === clienteId
-    );
-
-    return cliente?.nome_empresa || `ID: ${clienteId}`;
-  };
-
-  // =========================
-  // CARREGAR PLANOS
-  // =========================
-
-  const carregarPlanos = () => {
+  const carregar = async () => {
     setCarregando(true);
+    setErroLista(null);
 
-    api
-      .get("/planos/")
-      .then((res) => {
-        setPlanos(res.data);
-      })
-      .catch((error) => {
-        console.error(
-          "Erro ao carregar planos:",
-          error
-        );
-      })
-      .finally(() => {
-        setCarregando(false);
-      });
+    try {
+      const [resPlanos, resClientes] = await Promise.all([
+        api.get("/planos/"),
+        api.get("/clientes/"),
+      ]);
+
+      setPlanos(resPlanos.data);
+      setClientes(resClientes.data);
+    } catch (error) {
+      console.error("Erro ao carregar planos:", error);
+
+      setErroLista(
+        extrairErro(
+          error,
+          "Não foi possível carregar os planos."
+        )
+      );
+    } finally {
+      setCarregando(false);
+    }
   };
-
-  // =========================
-  // CARREGAR CLIENTES
-  // =========================
-
-  const carregarClientes = () => {
-    api
-      .get("/clientes/")
-      .then((res) => {
-        setClientes(res.data);
-      })
-      .catch((error) => {
-        console.error(
-          "Erro ao carregar clientes:",
-          error
-        );
-      });
-  };
-
-  // =========================
-  // CARREGAMENTO INICIAL
-  // =========================
 
   useEffect(() => {
-    carregarPlanos();
-    carregarClientes();
+    carregar();
   }, []);
 
-  // =========================
-  // ABRIR MODAL ADICIONAR
-  // =========================
+  /* =======================================================
+     MODAL
+  ======================================================= */
 
-  const abrirModalAdicionar = () => {
-    setNovo({
-      cliente_id: undefined,
-      nome_plano: "",
-      valor_mensal: 0,
-      status_plano: "ativo",
-    });
-
-    setModalAdicionar(true);
+  const abrirNovo = () => {
+    setEditandoId(null);
+    setForm(formVazio());
+    setErroModal(null);
+    setModalAberto(true);
   };
 
-  // =========================
-  // FECHAR MODAL ADICIONAR
-  // =========================
-
-  const fecharModalAdicionar = () => {
-    setModalAdicionar(false);
-    setNovo({});
+  const abrirEdicao = (plano: Plano) => {
+    setEditandoId(plano.id);
+    setForm(paraForm(plano));
+    setErroModal(null);
+    setModalAberto(true);
   };
 
-  // =========================
-  // CRIAR PLANO
-  // =========================
-
-  const criar = () => {
-    if (!novo.cliente_id) {
-      alert("Selecione um cliente.");
-      return;
-    }
-
-    if (!novo.nome_plano?.trim()) {
-      alert("Selecione o nome do plano.");
-      return;
-    }
-
-    if (
-      novo.valor_mensal === undefined ||
-      novo.valor_mensal === null
-    ) {
-      alert("Informe o valor mensal.");
-      return;
-    }
-
-    api
-      .post("/planos/", novo)
-      .then(() => {
-        fecharModalAdicionar();
-        carregarPlanos();
-      })
-      .catch((error) => {
-        console.error(
-          "Erro ao criar plano:",
-          error
-        );
-
-        alert(
-          "Não foi possível criar o plano."
-        );
-      });
+  const fecharModal = () => {
+    setModalAberto(false);
+    setEditandoId(null);
+    setErroModal(null);
   };
 
-  // =========================
-  // ABRIR EDIÇÃO
-  // =========================
+  const alterar = (campo: keyof PlanoForm, valor: string) => {
+    setForm((anterior) => {
+      const atualizado = { ...anterior, [campo]: valor };
 
-  const iniciarEdicao = (plano: Plano) => {
-    setEditando({
-      ...plano,
+      if (campo === "status_plano") {
+        if (valor === "Cancelado") {
+          atualizado.data_cancelamento =
+            anterior.data_cancelamento || hoje();
+          atualizado.proximo_vencimento = "";
+        } else {
+          atualizado.data_cancelamento = "";
+          atualizado.motivo_cancelamento = "";
+        }
+      }
+
+      return atualizado;
     });
   };
 
-  // =========================
-  // ATUALIZAR PLANO
-  // =========================
+  /* =======================================================
+     SALVAR (CRIAR / ATUALIZAR)
+  ======================================================= */
 
-  const atualizar = () => {
-    if (!editando) return;
+  const salvar = async () => {
+    const erro = validar(form);
 
-    if (!editando.cliente_id) {
-      alert("Selecione um cliente.");
+    if (erro) {
+      setErroModal(erro);
       return;
     }
 
-    if (!editando.nome_plano.trim()) {
-      alert("Selecione o nome do plano.");
-      return;
+    setSalvando(true);
+    setErroModal(null);
+
+    try {
+      const payload = montarPayload(form);
+
+      if (editandoId !== null) {
+        await api.put(`/planos/${editandoId}`, payload);
+      } else {
+        await api.post("/planos/", payload);
+      }
+
+      fecharModal();
+      await carregar();
+    } catch (error) {
+      console.error("Erro ao salvar plano:", error);
+
+      setErroModal(
+        extrairErro(
+          error,
+          "Não foi possível salvar o plano."
+        )
+      );
+    } finally {
+      setSalvando(false);
     }
-
-    api
-      .put(`/planos/${editando.id}`, editando)
-      .then(() => {
-        setEditando(null);
-        carregarPlanos();
-      })
-      .catch((error) => {
-        console.error(
-          "Erro ao atualizar plano:",
-          error
-        );
-
-        alert(
-          "Não foi possível atualizar o plano."
-        );
-      });
   };
 
-  // =========================
-  // DELETAR PLANO
-  // =========================
+  /* =======================================================
+     EXCLUIR
+  ======================================================= */
 
-  const deletar = (id: number) => {
-    const confirmar = window.confirm(
-      "Tem certeza que deseja excluir este plano?"
+  const deletar = async (plano: Plano) => {
+    const confirmado = window.confirm(
+      `Tem certeza que deseja excluir o plano "${plano.nome_plano}" de ${
+        plano.cliente_nome || `cliente #${plano.cliente_id}`
+      }?\n\nEssa ação não poderá ser desfeita.`
     );
 
-    if (!confirmar) return;
+    if (!confirmado) return;
 
-    api
-      .delete(`/planos/${id}`)
-      .then(() => {
-        carregarPlanos();
-      })
-      .catch((error) => {
-        console.error(
-          "Erro ao excluir plano:",
-          error
-        );
+    try {
+      setExcluindoId(plano.id);
 
-        alert(
+      await api.delete(`/planos/${plano.id}`);
+
+      setPlanos((anterior) =>
+        anterior.filter((item) => item.id !== plano.id)
+      );
+    } catch (error) {
+      console.error("Erro ao excluir plano:", error);
+
+      alert(
+        extrairErro(
+          error,
           "Não foi possível excluir o plano."
-        );
-      });
+        )
+      );
+    } finally {
+      setExcluindoId(null);
+    }
   };
+
+  /* =======================================================
+     FILTROS
+  ======================================================= */
+
+  const planosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+
+    return planos.filter((plano) => {
+      if (filtroStatus && plano.status_plano !== filtroStatus) {
+        return false;
+      }
+
+      if (!termo) return true;
+
+      const texto = [
+        plano.id,
+        plano.cliente_nome,
+        plano.nome_plano,
+        plano.forma_pagamento,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return texto.includes(termo);
+    });
+  }, [planos, busca, filtroStatus]);
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <div>
       <Navbar />
 
       <div className="p-6">
-
-        {/* ========================= */}
         {/* CABEÇALHO */}
-        {/* ========================= */}
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
             <h2 className="text-3xl font-bold">
               Planos Recorrentes
@@ -286,159 +478,189 @@ export default function PlanosPage() {
 
           <button
             className="btn btn-primary"
-            onClick={abrirModalAdicionar}
+            onClick={abrirNovo}
           >
             + Adicionar Plano
           </button>
         </div>
 
-        {/* ========================= */}
+        {/* FILTROS */}
+
+        <div className="flex flex-col md:flex-row gap-4 mb-4">
+          <input
+            className="input input-bordered flex-1"
+            placeholder="Buscar por cliente, plano, forma de pagamento..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+
+          <select
+            className="select select-bordered"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+          >
+            <option value="">Todos os status</option>
+
+            {STATUS_PLANO.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="btn btn-outline"
+            onClick={carregar}
+            disabled={carregando}
+          >
+            {carregando ? (
+              <span className="loading loading-spinner loading-sm" />
+            ) : (
+              "Atualizar"
+            )}
+          </button>
+        </div>
+
+        {erroLista && (
+          <div className="alert alert-error mb-4">
+            <span>{erroLista}</span>
+
+            <button className="btn btn-sm" onClick={carregar}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         {/* TABELA */}
-        {/* ========================= */}
 
         <div className="overflow-x-auto">
           <table className="table table-zebra w-full">
-
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Cliente</th>
                 <th>Plano</th>
                 <th>Valor Mensal</th>
+                <th>Dia</th>
+                <th>Cobrança</th>
+                <th>Próx. Vencimento</th>
+                <th>Forma de Pagamento</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
             </thead>
 
             <tbody>
-
               {carregando ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="text-center py-8"
-                  >
+                  <td colSpan={10} className="text-center py-8">
                     Carregando planos...
                   </td>
                 </tr>
-              ) : planos.length === 0 ? (
+              ) : planosFiltrados.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="text-center py-8"
-                  >
-                    Nenhum plano cadastrado.
+                  <td colSpan={10} className="text-center py-8">
+                    {planos.length === 0
+                      ? "Nenhum plano cadastrado."
+                      : "Nenhum plano encontrado."}
                   </td>
                 </tr>
               ) : (
-                planos.map((p) => (
-                  <tr key={p.id}>
+                planosFiltrados.map((plano) => (
+                  <tr key={plano.id}>
+                    <td>{plano.id}</td>
 
-                    <td>
-                      {p.id}
+                    <td className="font-medium">
+                      {plano.cliente_nome ||
+                        `ID: ${plano.cliente_id}`}
                     </td>
 
-                    <td>
-                      {getNomeCliente(
-                        p.cliente_id
-                      )}
-                    </td>
+                    <td>{plano.nome_plano || "-"}</td>
+
+                    <td>{formatarMoeda(plano.valor_mensal)}</td>
+
+                    <td>{plano.dia_cobranca ?? "-"}</td>
+
+                    <td>{plano.tipo_cobranca || "-"}</td>
 
                     <td>
-                      {p.nome_plano}
+                      {formatarData(plano.proximo_vencimento)}
                     </td>
 
-                    <td>
-                      {formatarMoeda(
-                        p.valor_mensal
-                      )}
-                    </td>
+                    <td>{plano.forma_pagamento || "-"}</td>
 
                     <td>
                       <span
                         className={getStatusBadgeClass(
-                          p.status_plano
+                          plano.status_plano
                         )}
                       >
-                        {p.status_plano
-                          ? p.status_plano
-                              .charAt(0)
-                              .toUpperCase() +
-                            p.status_plano.slice(1)
-                          : ""}
+                        {plano.status_plano || "-"}
                       </span>
                     </td>
 
                     <td>
                       <div className="flex gap-2">
-
                         <button
                           className="btn btn-warning btn-xs"
-                          onClick={() =>
-                            iniciarEdicao(p)
-                          }
+                          onClick={() => abrirEdicao(plano)}
                         >
                           Editar
                         </button>
 
                         <button
                           className="btn btn-error btn-xs"
-                          onClick={() =>
-                            deletar(p.id)
-                          }
+                          onClick={() => deletar(plano)}
+                          disabled={excluindoId === plano.id}
                         >
-                          Excluir
+                          {excluindoId === plano.id
+                            ? "Excluindo..."
+                            : "Excluir"}
                         </button>
-
                       </div>
                     </td>
-
                   </tr>
                 ))
               )}
-
             </tbody>
-
           </table>
         </div>
 
-        {/* ========================= */}
-        {/* MODAL - ADICIONAR PLANO */}
-        {/* ========================= */}
+        {/* =================================================
+            MODAL (ADICIONAR / EDITAR)
+        ================================================= */}
 
-        {modalAdicionar && (
+        {modalAberto && (
           <div className="modal modal-open">
-
-            <div className="modal-box">
-
-              <h3 className="font-bold text-lg">
-                Adicionar Plano
+            <div className="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
+              <h3 className="font-bold text-xl">
+                {editandoId !== null
+                  ? `Editar Plano #${editandoId}`
+                  : "Adicionar Plano"}
               </h3>
 
-              <div className="flex flex-col gap-4 mt-4">
+              {erroModal && (
+                <div className="alert alert-error my-4">
+                  <span>{erroModal}</span>
+                </div>
+              )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 {/* Cliente */}
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="label">
                     <span className="label-text">
-                      Cliente
+                      Cliente{" "}
+                      <span className="text-error">*</span>
                     </span>
                   </label>
 
                   <select
                     className="select select-bordered w-full"
-                    value={
-                      novo.cliente_id || ""
-                    }
+                    value={form.cliente_id}
                     onChange={(e) =>
-                      setNovo({
-                        ...novo,
-                        cliente_id:
-                          Number(
-                            e.target.value
-                          ),
-                      })
+                      alterar("cliente_id", e.target.value)
                     }
                   >
                     <option value="">
@@ -453,56 +675,45 @@ export default function PlanosPage() {
                         {cliente.nome_empresa}
                       </option>
                     ))}
-
                   </select>
                 </div>
 
-                {/* Nome do Plano */}
+                {/* Nome do plano */}
 
                 <div>
                   <label className="label">
                     <span className="label-text">
-                      Nome do Plano
+                      Nome do Plano{" "}
+                      <span className="text-error">*</span>
                     </span>
                   </label>
 
                   <select
                     className="select select-bordered w-full"
-                    value={
-                      novo.nome_plano || ""
-                    }
+                    value={form.nome_plano}
                     onChange={(e) =>
-                      setNovo({
-                        ...novo,
-                        nome_plano:
-                          e.target.value,
-                      })
+                      alterar("nome_plano", e.target.value)
                     }
                   >
                     <option value="">
                       Selecione o plano
                     </option>
 
-                    <option value="Plano Essencial">
-                      Plano Essencial
-                    </option>
-
-                    <option value="Plano Pro">
-                      Plano Pro
-                    </option>
-
-                    <option value="Plano Pro Max">
-                      Plano Pro Max
-                    </option>
+                    {NOMES_PLANO.map((nome) => (
+                      <option key={nome} value={nome}>
+                        {nome}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Valor Mensal */}
+                {/* Valor mensal */}
 
                 <div>
                   <label className="label">
                     <span className="label-text">
-                      Valor Mensal
+                      Valor Mensal{" "}
+                      <span className="text-error">*</span>
                     </span>
                   </label>
 
@@ -512,209 +723,58 @@ export default function PlanosPage() {
                     min="0"
                     className="input input-bordered w-full"
                     placeholder="Ex: 299.90"
-                    value={
-                      novo.valor_mensal ?? ""
-                    }
+                    value={form.valor_mensal}
                     onChange={(e) =>
-                      setNovo({
-                        ...novo,
-                        valor_mensal:
-                          Number(
-                            e.target.value
-                          ),
-                      })
+                      alterar("valor_mensal", e.target.value)
                     }
                   />
                 </div>
 
-                {/* Status */}
+                {/* Dia de cobrança */}
 
                 <div>
                   <label className="label">
                     <span className="label-text">
-                      Status do Plano
-                    </span>
-                  </label>
-
-                  <select
-                    className="select select-bordered w-full"
-                    value={
-                      novo.status_plano ||
-                      "ativo"
-                    }
-                    onChange={(e) =>
-                      setNovo({
-                        ...novo,
-                        status_plano:
-                          e.target.value,
-                      })
-                    }
-                  >
-                    <option value="ativo">
-                      Ativo
-                    </option>
-
-                    <option value="inativo">
-                      Inativo
-                    </option>
-
-                    <option value="pausado">
-                      Pausado
-                    </option>
-                  </select>
-                </div>
-
-              </div>
-
-              {/* AÇÕES */}
-
-              <div className="modal-action">
-
-                <button
-                  className="btn btn-primary"
-                  onClick={criar}
-                >
-                  Salvar
-                </button>
-
-                <button
-                  className="btn"
-                  onClick={
-                    fecharModalAdicionar
-                  }
-                >
-                  Cancelar
-                </button>
-
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* ========================= */}
-        {/* MODAL - EDITAR PLANO */}
-        {/* ========================= */}
-
-        {editando && (
-          <div className="modal modal-open">
-
-            <div className="modal-box">
-
-              <h3 className="font-bold text-lg">
-                Editar Plano
-              </h3>
-
-              <div className="flex flex-col gap-4 mt-4">
-
-                {/* Cliente */}
-
-                <div>
-                  <label className="label">
-                    <span className="label-text">
-                      Cliente
-                    </span>
-                  </label>
-
-                  <select
-                    className="select select-bordered w-full"
-                    value={
-                      editando.cliente_id
-                    }
-                    onChange={(e) =>
-                      setEditando({
-                        ...editando,
-                        cliente_id:
-                          Number(
-                            e.target.value
-                          ),
-                      })
-                    }
-                  >
-                    <option value="">
-                      Selecione o cliente
-                    </option>
-
-                    {clientes.map((cliente) => (
-                      <option
-                        key={cliente.id}
-                        value={cliente.id}
-                      >
-                        {cliente.nome_empresa}
-                      </option>
-                    ))}
-
-                  </select>
-                </div>
-
-                {/* Nome do Plano */}
-
-                <div>
-                  <label className="label">
-                    <span className="label-text">
-                      Nome do Plano
-                    </span>
-                  </label>
-
-                  <select
-                    className="select select-bordered w-full"
-                    value={
-                      editando.nome_plano
-                    }
-                    onChange={(e) =>
-                      setEditando({
-                        ...editando,
-                        nome_plano:
-                          e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">
-                      Selecione o plano
-                    </option>
-
-                    <option value="Plano Essencial">
-                      Plano Essencial
-                    </option>
-
-                    <option value="Plano Pro">
-                      Plano Pro
-                    </option>
-
-                    <option value="Plano Pro Max">
-                      Plano Pro Max
-                    </option>
-                  </select>
-                </div>
-
-                {/* Valor Mensal */}
-
-                <div>
-                  <label className="label">
-                    <span className="label-text">
-                      Valor Mensal
+                      Dia de Cobrança{" "}
+                      <span className="text-error">*</span>
                     </span>
                   </label>
 
                   <input
                     type="number"
-                    step="0.01"
-                    min="0"
+                    min="1"
+                    max="31"
                     className="input input-bordered w-full"
-                    value={
-                      editando.valor_mensal
-                    }
+                    placeholder="1 a 31"
+                    value={form.dia_cobranca}
                     onChange={(e) =>
-                      setEditando({
-                        ...editando,
-                        valor_mensal:
-                          Number(
-                            e.target.value
-                          ),
-                      })
+                      alterar("dia_cobranca", e.target.value)
                     }
                   />
+                </div>
+
+                {/* Tipo de cobrança */}
+
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Tipo de Cobrança
+                    </span>
+                  </label>
+
+                  <select
+                    className="select select-bordered w-full"
+                    value={form.tipo_cobranca}
+                    onChange={(e) =>
+                      alterar("tipo_cobranca", e.target.value)
+                    }
+                  >
+                    {TIPOS_COBRANCA.map((tipo) => (
+                      <option key={tipo} value={tipo}>
+                        {tipo}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Status */}
@@ -726,81 +786,198 @@ export default function PlanosPage() {
                     </span>
                   </label>
 
-                  <div className="flex items-center gap-2">
-
-                    <select
-                      className="select select-bordered flex-1"
-                      value={
-                        editando.status_plano
-                      }
-                      onChange={(e) =>
-                        setEditando({
-                          ...editando,
-                          status_plano:
-                            e.target.value,
-                        })
-                      }
-                    >
-                      <option value="ativo">
-                        Ativo
+                  <select
+                    className="select select-bordered w-full"
+                    value={form.status_plano}
+                    onChange={(e) =>
+                      alterar("status_plano", e.target.value)
+                    }
+                  >
+                    {STATUS_PLANO.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
                       </option>
-
-                      <option value="inativo">
-                        Inativo
-                      </option>
-
-                      <option value="pausado">
-                        Pausado
-                      </option>
-                    </select>
-
-                    <span
-                      className={getStatusBadgeClass(
-                        editando.status_plano
-                      )}
-                    >
-                      {editando.status_plano
-                        ? editando.status_plano
-                            .charAt(0)
-                            .toUpperCase() +
-                          editando.status_plano.slice(
-                            1
-                          )
-                        : ""}
-                    </span>
-
-                  </div>
+                    ))}
+                  </select>
                 </div>
 
+                {/* Forma de pagamento */}
+
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Forma de Pagamento
+                    </span>
+                  </label>
+
+                  <select
+                    className="select select-bordered w-full"
+                    value={form.forma_pagamento}
+                    onChange={(e) =>
+                      alterar("forma_pagamento", e.target.value)
+                    }
+                  >
+                    <option value="">Selecione</option>
+
+                    {FORMAS_PAGAMENTO.map((forma) => (
+                      <option key={forma} value={forma}>
+                        {forma}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Data de início */}
+
+                <div>
+                  <label className="label">
+                    <span className="label-text">
+                      Data de Início
+                    </span>
+                  </label>
+
+                  <input
+                    type="date"
+                    className="input input-bordered w-full"
+                    value={form.data_inicio}
+                    onChange={(e) =>
+                      alterar("data_inicio", e.target.value)
+                    }
+                  />
+                </div>
+
+                {/* Próximo vencimento */}
+
+                {form.status_plano !== "Cancelado" && (
+                  <div>
+                    <label className="label">
+                      <span className="label-text">
+                        Próximo Vencimento
+                      </span>
+                    </label>
+
+                    <input
+                      type="date"
+                      className="input input-bordered w-full"
+                      value={form.proximo_vencimento}
+                      onChange={(e) =>
+                        alterar(
+                          "proximo_vencimento",
+                          e.target.value
+                        )
+                      }
+                    />
+
+                    <p className="text-xs text-base-content/60 mt-1">
+                      Deixe vazio para calcular automaticamente
+                      pelo dia de cobrança.
+                    </p>
+                  </div>
+                )}
+
+                {/* Cancelamento */}
+
+                {form.status_plano === "Cancelado" && (
+                  <>
+                    <div>
+                      <label className="label">
+                        <span className="label-text">
+                          Data do Cancelamento
+                        </span>
+                      </label>
+
+                      <input
+                        type="date"
+                        className="input input-bordered w-full"
+                        value={form.data_cancelamento}
+                        onChange={(e) =>
+                          alterar(
+                            "data_cancelamento",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="label">
+                        <span className="label-text">
+                          Motivo do Cancelamento{" "}
+                          <span className="text-error">*</span>
+                        </span>
+                      </label>
+
+                      <input
+                        className="input input-bordered w-full"
+                        maxLength={150}
+                        placeholder="Informe o motivo"
+                        value={form.motivo_cancelamento}
+                        onChange={(e) =>
+                          alterar(
+                            "motivo_cancelamento",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Observações */}
+
+                <div className="md:col-span-2">
+                  <label className="label">
+                    <span className="label-text">
+                      Observações
+                    </span>
+                  </label>
+
+                  <textarea
+                    className="textarea textarea-bordered w-full"
+                    rows={3}
+                    placeholder="Observações sobre o plano..."
+                    value={form.observacoes}
+                    onChange={(e) =>
+                      alterar("observacoes", e.target.value)
+                    }
+                  />
+                </div>
               </div>
 
               {/* AÇÕES */}
 
               <div className="modal-action">
-
                 <button
                   className="btn btn-primary"
-                  onClick={atualizar}
+                  onClick={salvar}
+                  disabled={salvando}
                 >
-                  Salvar
+                  {salvando ? (
+                    <>
+                      <span className="loading loading-spinner loading-sm" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar"
+                  )}
                 </button>
 
                 <button
                   className="btn"
-                  onClick={() =>
-                    setEditando(null)
-                  }
+                  onClick={fecharModal}
+                  disabled={salvando}
                 >
                   Cancelar
                 </button>
-
               </div>
-
             </div>
 
+            <div
+              className="modal-backdrop"
+              onClick={() => !salvando && fecharModal()}
+            />
           </div>
         )}
-
       </div>
     </div>
   );
