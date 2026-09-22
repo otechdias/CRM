@@ -619,6 +619,18 @@ export default function ProjetosPage() {
   }, []);
 
   /* -------------------------------------------------------
+     APLICAR FILTROS VINDOS DA URL (ex: links do Dashboard,
+     como /crm/projetos?status=Em%20andamento)
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const statusUrl = params.get("status");
+
+    if (statusUrl) setFiltroStatus(statusUrl);
+  }, []);
+
+  /* -------------------------------------------------------
      FORMULÁRIOS
   ------------------------------------------------------- */
 

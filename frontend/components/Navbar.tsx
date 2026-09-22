@@ -50,6 +50,13 @@ export default function Navbar() {
               Script
             </Link>
           </li>
+
+          <li>
+            <Link href="/crm/dashboard">
+              Dashboard
+            </Link>
+          </li>
+
         </ul>
       </div>
     </div>

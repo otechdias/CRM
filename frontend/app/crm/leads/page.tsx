@@ -393,6 +393,7 @@ export default function LeadsPage() {
 
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroEtapa, setFiltroEtapa] = useState("");
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
   const [filtroDataDe, setFiltroDataDe] = useState("");
   const [filtroDataAte, setFiltroDataAte] = useState("");
@@ -590,6 +591,23 @@ const getInteresseBadgeClass = (
 
   useEffect(() => {
     carregar();
+  }, []);
+
+  /* =======================================================
+     APLICAR FILTROS VINDOS DA URL (ex: links do Dashboard,
+     como /crm/leads?status=Novo ou /crm/leads?etapa=...)
+  ======================================================= */
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const statusUrl = params.get("status");
+    const etapaUrl = params.get("etapa");
+    const responsavelUrl = params.get("responsavel");
+
+    if (statusUrl) setFiltroStatus(statusUrl);
+    if (etapaUrl) setFiltroEtapa(etapaUrl);
+    if (responsavelUrl) setFiltroResponsavel(responsavelUrl);
   }, []);
 
   /* =======================================================
@@ -966,6 +984,7 @@ const getInteresseBadgeClass = (
     const termo = busca.trim().toLowerCase();
     return leads.filter((lead) => {
       if (filtroStatus && lead.status_lead !== filtroStatus) return false;
+      if (filtroEtapa && lead.etapa_comercial !== filtroEtapa) return false;
       if (filtroResponsavel && lead.responsavel !== filtroResponsavel) return false;
       if (filtroPrioridade && lead.prioridade !== filtroPrioridade) return false;
       const data = (lead.data_proxima_acao || lead.data_ultimo_contato || lead.created_at || "").slice(0, 10);
@@ -974,10 +993,10 @@ const getInteresseBadgeClass = (
       if (!termo) return true;
       return [lead.id, lead.nome_empresa, lead.nome_contato, lead.telefone, lead.email, lead.cidade, lead.ramo, lead.ramo_personalizado, lead.responsavel, lead.status_lead, lead.etapa_comercial, lead.nivel_interesse, lead.origem_lead, lead.tipo_primeiro_contato].filter(Boolean).join(" ").toLowerCase().includes(termo);
     });
-  }, [leads, busca, filtroStatus, filtroResponsavel, filtroDataDe, filtroDataAte, filtroPrioridade]);
+  }, [leads, busca, filtroStatus, filtroEtapa, filtroResponsavel, filtroDataDe, filtroDataAte, filtroPrioridade]);
 
-  const temFiltro = Boolean(busca || filtroStatus || filtroResponsavel || filtroDataDe || filtroDataAte || filtroPrioridade);
-  const limparFiltros = () => { setBusca(""); setFiltroStatus(""); setFiltroResponsavel(""); setFiltroDataDe(""); setFiltroDataAte(""); setFiltroPrioridade(""); };
+  const temFiltro = Boolean(busca || filtroStatus || filtroEtapa || filtroResponsavel || filtroDataDe || filtroDataAte || filtroPrioridade);
+  const limparFiltros = () => { setBusca(""); setFiltroStatus(""); setFiltroEtapa(""); setFiltroResponsavel(""); setFiltroDataDe(""); setFiltroDataAte(""); setFiltroPrioridade(""); };
   /* =======================================================
      RENDER
   ======================================================= */
@@ -2108,6 +2127,7 @@ const getInteresseBadgeClass = (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
           <input className="input input-bordered xl:col-span-2" placeholder="Pesquisar..." value={busca} onChange={(e) => setBusca(e.target.value)} />
           <select className="select select-bordered" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}><option value="">Todos os status</option>{STATUS_LEAD.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+          <select className="select select-bordered" value={filtroEtapa} onChange={(e) => setFiltroEtapa(e.target.value)}><option value="">Todas as etapas</option>{ETAPAS_COMERCIAIS.map((etapa) => <option key={etapa} value={etapa}>{etapa}</option>)}</select>
           <select className="select select-bordered" value={filtroResponsavel} onChange={(e) => setFiltroResponsavel(e.target.value)}><option value="">Todos os responsáveis</option>{responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}</select>
           <select className="select select-bordered" value={filtroPrioridade} onChange={(e) => setFiltroPrioridade(e.target.value)}><option value="">Todas as prioridades</option>{PRIORIDADES.map((p) => <option key={p} value={p}>{p}</option>)}</select>
           <button className="btn btn-outline" onClick={limparFiltros} disabled={!temFiltro}>Limpar filtros</button>

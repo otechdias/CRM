@@ -312,6 +312,18 @@ export default function PlanosPage() {
   }, []);
 
   /* =======================================================
+     APLICAR FILTROS VINDOS DA URL (ex: links do Dashboard,
+     como /crm/planos?status=Ativo)
+  ======================================================= */
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const statusUrl = params.get("status");
+
+    if (statusUrl) setFiltroStatus(statusUrl);
+  }, []);
+
+  /* =======================================================
      MODAL
   ======================================================= */
 

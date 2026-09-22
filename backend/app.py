@@ -1,3 +1,4 @@
+# APP.PY
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from backend.routes.projetos import projetos_bp
 from backend.routes.pagamentos import pagamentos_bp
 from backend.routes.planos import planos_bp
 from backend.routes.interacoes import interacoes_bp
+from backend.routes.dashboard import dashboard_bp
 
 load_dotenv()
 
@@ -29,6 +31,7 @@ app.register_blueprint(projetos_bp, url_prefix="/projetos")
 app.register_blueprint(pagamentos_bp, url_prefix="/pagamentos")
 app.register_blueprint(planos_bp, url_prefix="/planos")
 app.register_blueprint(interacoes_bp, url_prefix="/interacoes")
+app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
 
 
 @app.route("/")

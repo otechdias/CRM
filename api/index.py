@@ -1,3 +1,4 @@
+# API/INDEX.PY
 from backend.app import app as flask_app
 
 
@@ -8,6 +9,7 @@ COLLECTION_ROUTES = {
     "/pagamentos",
     "/planos",
     "/interacoes",
+    "/dashboard"
 }
 
 

@@ -205,7 +205,18 @@ export default function PagamentosPage() {
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [resumo, setResumo] = useState<Resumo | null>(null);
 
-  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
+  const [filtros, setFiltros] = useState<Filtros>(() => {
+    // Aplica filtros vindos da URL (ex: links do Dashboard,
+    // como /crm/pagamentos?status=Pendente)
+    if (typeof window === "undefined") return FILTROS_VAZIOS;
+
+    const params = new URLSearchParams(window.location.search);
+    const statusUrl = params.get("status");
+
+    if (!statusUrl) return FILTROS_VAZIOS;
+
+    return { ...FILTROS_VAZIOS, status: statusUrl };
+  });
   const [versao, setVersao] = useState(0);
 
   const [carregando, setCarregando] = useState(false);

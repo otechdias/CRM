@@ -349,6 +349,18 @@ export default function ClientesPage() {
     carregar();
   }, []);
 
+  /* =======================================================
+     APLICAR FILTROS VINDOS DA URL (ex: links do Dashboard,
+     como /crm/clientes?status=Ativo)
+  ======================================================= */
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const statusUrl = params.get("status");
+
+    if (statusUrl) setFiltroStatus(statusUrl);
+  }, []);
+
   const clientesFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return clientes.filter((cliente) => {
