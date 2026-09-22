@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy } from "lucide-react";
+import { Copy, User } from "lucide-react";
 import Navbar from "../../../components/Navbar";
 
 type SubVariacao = {
@@ -30,9 +30,31 @@ export default function ScriptsCRM() {
   const [copiado, setCopiado] = useState("");
   const [aberto, setAberto] = useState<string | null>(null);
 
+  // Nome do cliente digitado pelo usuário. Usado para substituir
+  // o placeholder [Nome] em todos os scripts na hora de copiar.
+  const [nomeCliente, setNomeCliente] = useState("");
+
+  /**
+   * Substitui o placeholder [Nome] pelo nome do cliente digitado.
+   * Se o campo estiver vazio, mantém o texto original com [Nome].
+   */
+  const aplicarNomeCliente = (texto: string): string => {
+    const nome = nomeCliente.trim();
+
+    if (!nome) {
+      return texto;
+    }
+
+    // Substitui todas as ocorrências de [Nome], mesmo que apareça
+    // mais de uma vez no mesmo script.
+    return texto.replace(/\[Nome\]/g, nome);
+  };
+
   const copiar = async (texto: string, id: string) => {
     try {
-      await navigator.clipboard.writeText(texto);
+      const textoFinal = aplicarNomeCliente(texto);
+
+      await navigator.clipboard.writeText(textoFinal);
       setCopiado(id);
 
       setTimeout(() => {
@@ -498,6 +520,32 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
           </p>
         </div>
 
+        {/* CAMPO DE NOME DO CLIENTE */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm">
+          <div className="card-body p-5">
+            <label className="label">
+              <span className="label-text font-semibold flex items-center gap-2">
+                <User size={16} />
+                Nome do Cliente
+              </span>
+            </label>
+
+            <input
+              type="text"
+              className="input input-bordered w-full max-w-md"
+              placeholder="Digite o nome do cliente (ex: João)"
+              value={nomeCliente}
+              onChange={(e) => setNomeCliente(e.target.value)}
+            />
+
+            <p className="text-xs text-base-content/60 mt-2">
+              {nomeCliente.trim()
+                ? `Ao copiar, "[Nome]" será substituído por "${nomeCliente.trim()}".`
+                : 'Deixe em branco para copiar os scripts com "[Nome]" original.'}
+            </p>
+          </div>
+        </div>
+
         {/* GRID DE CARDS */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {data.map((grupo, index) => (
@@ -573,6 +621,13 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
                                           ) => {
                                             const subButtonId = `${subId}-${sIndex}`;
 
+                                            // Preview já mostra o nome
+                                            // do cliente aplicado.
+                                            const previewTexto =
+                                              aplicarNomeCliente(
+                                                sub.texto
+                                              );
+
                                             return (
                                               <div
                                                 key={sIndex}
@@ -586,7 +641,7 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
 
                                                 <div className="collapse-content space-y-2">
                                                   <p className="text-sm whitespace-pre-line text-base-content/80">
-                                                    {sub.texto}
+                                                    {previewTexto}
                                                   </p>
 
                                                   <button
@@ -618,7 +673,9 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
                                       ) : (
                                         <>
                                           <p className="text-sm whitespace-pre-line text-base-content/80">
-                                            {textoVariacao}
+                                            {aplicarNomeCliente(
+                                              textoVariacao
+                                            )}
                                           </p>
 
                                           <button
@@ -651,7 +708,7 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
                             /* SCRIPT SEM VARIAÇÕES */
                             <>
                               <p className="text-sm whitespace-pre-line text-base-content/80">
-                                {textoItem}
+                                {aplicarNomeCliente(textoItem)}
                               </p>
 
                               <button
@@ -709,4 +766,4 @@ Inclui otimização de copy, novos conteúdos e suporte prioritário.
       </div>
     </div>
   );
-}                                                                                                                                           
+}

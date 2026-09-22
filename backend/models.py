@@ -1132,6 +1132,10 @@ class Script(db.Model):
         server_default=db.func.now()
     )
 
+    # --------------------------------------------------------
+    # SERIALIZAÇÃO
+    # --------------------------------------------------------
+
     def to_dict(self):
         return {
             "id": self.id,
