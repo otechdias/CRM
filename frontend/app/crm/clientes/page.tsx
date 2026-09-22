@@ -1,3 +1,4 @@
+// FRONTEND/CLIENTES
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -155,6 +156,10 @@ export default function ClientesPage() {
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
 
   // Leads disponíveis para virar cliente:
   // - que ainda não estão vinculados a um cliente (cliente_id vazio)
@@ -343,6 +348,21 @@ export default function ClientesPage() {
   useEffect(() => {
     carregar();
   }, []);
+
+  const clientesFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return clientes.filter((cliente) => {
+      if (filtroStatus && cliente.status_cliente !== filtroStatus) return false;
+      const data = (cliente.proximo_contato || cliente.ultimo_contato || cliente.data_conversao || cliente.created_at || "").slice(0, 10);
+      if (filtroDataDe && (!data || data < filtroDataDe)) return false;
+      if (filtroDataAte && (!data || data > filtroDataAte)) return false;
+      if (!termo) return true;
+      return [cliente.id, cliente.nome_empresa, cliente.nome_contato, cliente.telefone, cliente.email, cliente.cidade, cliente.ramo, cliente.tipo_cliente, cliente.origem_cliente].filter(Boolean).join(" ").toLowerCase().includes(termo);
+    });
+  }, [clientes, busca, filtroStatus, filtroDataDe, filtroDataAte]);
+
+  const temFiltro = Boolean(busca || filtroStatus || filtroDataDe || filtroDataAte);
+  const limparFiltros = () => { setBusca(""); setFiltroStatus(""); setFiltroDataDe(""); setFiltroDataAte(""); };
 
   // ============================================================
   // SELECIONAR E AUTO-PREENCHER LEAD
@@ -956,6 +976,14 @@ export default function ClientesPage() {
 
         {/* TABELA */}
 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+          <input className="input input-bordered md:col-span-2" placeholder="Pesquisar cliente..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <select className="select select-bordered" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}><option value="">Todos os status</option>{STATUS_CLIENTE.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+          <input type="date" className="input input-bordered" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} title="Data inicial" />
+          <input type="date" className="input input-bordered" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} title="Data final" />
+          <button className="btn btn-outline" onClick={limparFiltros} disabled={!temFiltro}>Limpar filtros</button>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="table table-zebra w-full">
             <thead>
@@ -980,14 +1008,10 @@ export default function ClientesPage() {
                     Carregando clientes...
                   </td>
                 </tr>
-              ) : clientes.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="text-center">
-                    Nenhum cliente cadastrado.
-                  </td>
-                </tr>
+              ) : clientesFiltrados.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-10">{temFiltro ? "Nenhum cliente encontrado com esses filtros." : "Nenhum cliente cadastrado."}</td></tr>
               ) : (
-                clientes.map((cliente) => (
+                clientesFiltrados.map((cliente) => (
                   <tr key={cliente.id}>
                     <td>{cliente.id}</td>
 

@@ -1,3 +1,4 @@
+// FRONTEND/PROJETOS
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -583,6 +584,8 @@ export default function ProjetosPage() {
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroPrioridade, setFiltroPrioridade] = useState("");
   const [filtroCliente, setFiltroCliente] = useState("");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
 
   /* -------------------------------------------------------
      CARREGAR
@@ -780,6 +783,8 @@ export default function ProjetosPage() {
     setFiltroStatus("");
     setFiltroPrioridade("");
     setFiltroCliente("");
+    setFiltroDataDe("");
+    setFiltroDataAte("");
   };
 
   const projetosFiltrados = useMemo(() => {
@@ -798,10 +803,10 @@ export default function ProjetosPage() {
         return false;
       }
 
-      if (filtroCliente && String(projeto.cliente_id) !== filtroCliente) {
-        return false;
-      }
-
+      if (filtroCliente && String(projeto.cliente_id) !== filtroCliente) return false;
+      const data = (projeto.data_previsao || projeto.data_inicio || projeto.data_entrega || projeto.created_at || "").slice(0, 10);
+      if (filtroDataDe && (!data || data < filtroDataDe)) return false;
+      if (filtroDataAte && (!data || data > filtroDataAte)) return false;
       if (!termo) return true;
 
       const texto = [
@@ -819,7 +824,7 @@ export default function ProjetosPage() {
 
       return texto.includes(termo);
     });
-  }, [projetos, busca, filtroStatus, filtroPrioridade, filtroCliente]);
+  }, [projetos, busca, filtroStatus, filtroPrioridade, filtroCliente, filtroDataDe, filtroDataAte]);
 
   /* -------------------------------------------------------
      RENDER
@@ -936,6 +941,9 @@ export default function ProjetosPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-4">
+          <input type="date" className="input input-bordered input-sm" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} title="Data inicial" />
+          <input type="date" className="input input-bordered input-sm" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} title="Data final" />
+
           <button
             className="btn btn-outline btn-sm"
             onClick={limparFiltros}

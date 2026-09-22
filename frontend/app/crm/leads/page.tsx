@@ -391,8 +391,12 @@ export default function LeadsPage() {
   const [salvando, setSalvando] =
     useState(false);
 
-  const [busca, setBusca] =
-    useState("");
+  const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroResponsavel, setFiltroResponsavel] = useState("");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
+  const [filtroPrioridade, setFiltroPrioridade] = useState("");
 
   /* =======================================================
      MÁSCARA DE TELEFONE
@@ -953,38 +957,27 @@ const getInteresseBadgeClass = (
      BUSCA
   ======================================================= */
 
+  const responsaveis = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.responsavel).filter(Boolean) as string[])).sort(),
+    [leads]
+  );
+
   const leadsFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-
-    if (!termo) {
-      return leads;
-    }
-
     return leads.filter((lead) => {
-      const texto = [
-        lead.id,
-        lead.nome_empresa,
-        lead.nome_contato,
-        lead.telefone,
-        lead.email,
-        lead.cidade,
-        lead.ramo,
-        lead.ramo_personalizado,
-        lead.responsavel,
-        lead.status_lead,
-        lead.etapa_comercial,
-        lead.nivel_interesse,
-        lead.origem_lead,
-        lead.tipo_primeiro_contato,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return texto.includes(termo);
+      if (filtroStatus && lead.status_lead !== filtroStatus) return false;
+      if (filtroResponsavel && lead.responsavel !== filtroResponsavel) return false;
+      if (filtroPrioridade && lead.prioridade !== filtroPrioridade) return false;
+      const data = (lead.data_proxima_acao || lead.data_ultimo_contato || lead.created_at || "").slice(0, 10);
+      if (filtroDataDe && (!data || data < filtroDataDe)) return false;
+      if (filtroDataAte && (!data || data > filtroDataAte)) return false;
+      if (!termo) return true;
+      return [lead.id, lead.nome_empresa, lead.nome_contato, lead.telefone, lead.email, lead.cidade, lead.ramo, lead.ramo_personalizado, lead.responsavel, lead.status_lead, lead.etapa_comercial, lead.nivel_interesse, lead.origem_lead, lead.tipo_primeiro_contato].filter(Boolean).join(" ").toLowerCase().includes(termo);
     });
-  }, [leads, busca]);
+  }, [leads, busca, filtroStatus, filtroResponsavel, filtroDataDe, filtroDataAte, filtroPrioridade]);
 
+  const temFiltro = Boolean(busca || filtroStatus || filtroResponsavel || filtroDataDe || filtroDataAte || filtroPrioridade);
+  const limparFiltros = () => { setBusca(""); setFiltroStatus(""); setFiltroResponsavel(""); setFiltroDataDe(""); setFiltroDataAte(""); setFiltroPrioridade(""); };
   /* =======================================================
      RENDER
   ======================================================= */
@@ -2112,27 +2105,15 @@ const getInteresseBadgeClass = (
             LISTAGEM
         ================================================= */}
 
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <input
-            className="input input-bordered flex-1"
-            placeholder="Buscar por empresa, contato, telefone, e-mail, cidade, ramo, etapa..."
-            value={busca}
-            onChange={(e) =>
-              setBusca(e.target.value)
-            }
-          />
-
-          <button
-            className="btn btn-outline"
-            onClick={carregar}
-            disabled={loading}
-          >
-            {loading ? (
-              <span className="loading loading-spinner loading-sm" />
-            ) : (
-              "Atualizar"
-            )}
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+          <input className="input input-bordered xl:col-span-2" placeholder="Pesquisar..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <select className="select select-bordered" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}><option value="">Todos os status</option>{STATUS_LEAD.map((status) => <option key={status} value={status}>{status}</option>)}</select>
+          <select className="select select-bordered" value={filtroResponsavel} onChange={(e) => setFiltroResponsavel(e.target.value)}><option value="">Todos os responsáveis</option>{responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}</select>
+          <select className="select select-bordered" value={filtroPrioridade} onChange={(e) => setFiltroPrioridade(e.target.value)}><option value="">Todas as prioridades</option>{PRIORIDADES.map((p) => <option key={p} value={p}>{p}</option>)}</select>
+          <button className="btn btn-outline" onClick={limparFiltros} disabled={!temFiltro}>Limpar filtros</button>
+          <input type="date" className="input input-bordered" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} title="Data inicial" />
+          <input type="date" className="input input-bordered" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} title="Data final" />
+          <button className="btn btn-outline" onClick={carregar} disabled={loading}>{loading ? <span className="loading loading-spinner loading-sm" /> : "Atualizar"}</button>
         </div>
 
         {erroLista && (

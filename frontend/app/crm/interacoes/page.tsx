@@ -1,3 +1,4 @@
+// FRONTEND/INTERACOES
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -444,6 +445,9 @@ export default function InteracoesPage() {
   const [filtroOrigem, setFiltroOrigem] = useState<"" | Origem>("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroResultado, setFiltroResultado] = useState("");
+  const [filtroResponsavel, setFiltroResponsavel] = useState("");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
 
   const [hoje] = useState(hojeLocal);
 
@@ -617,7 +621,10 @@ export default function InteracoesPage() {
       if (filtroOrigem === "cliente" && !i.cliente_id) return false;
       if (filtroTipo && i.tipo_interacao !== filtroTipo) return false;
       if (filtroResultado && i.resultado !== filtroResultado) return false;
-
+      if (filtroResponsavel && i.responsavel !== filtroResponsavel) return false;
+      const data = (i.data_interacao || i.data_proxima_acao || i.created_at || "").slice(0, 10);
+      if (filtroDataDe && (!data || data < filtroDataDe)) return false;
+      if (filtroDataAte && (!data || data > filtroDataAte)) return false;
       if (!termo) return true;
 
       return [
@@ -634,7 +641,7 @@ export default function InteracoesPage() {
         .toLowerCase()
         .includes(termo);
     });
-  }, [interacoes, busca, filtroOrigem, filtroTipo, filtroResultado]);
+  }, [interacoes, busca, filtroOrigem, filtroTipo, filtroResultado, filtroResponsavel, filtroDataDe, filtroDataAte]);
 
   // A API devolve da mais recente para a mais antiga. Só a interação mais
   // recente de cada lead/cliente pode ser sinalizada como "atrasada";
@@ -659,6 +666,9 @@ export default function InteracoesPage() {
     setFiltroOrigem("");
     setFiltroTipo("");
     setFiltroResultado("");
+    setFiltroResponsavel("");
+    setFiltroDataDe("");
+    setFiltroDataAte("");
   };
 
   /* -------------------------------------------------------
@@ -772,7 +782,16 @@ export default function InteracoesPage() {
             ))}
           </select>
 
-          {temFiltro && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <select className="select select-bordered" value={filtroResponsavel} onChange={(e) => setFiltroResponsavel(e.target.value)}>
+            <option value="">Todos os responsáveis</option>
+            {Array.from(new Set(interacoes.map((i) => i.responsavel).filter(Boolean) as string[])).sort().map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <input type="date" className="input input-bordered" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} title="Data inicial" />
+          <input type="date" className="input input-bordered" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} title="Data final" />
+        </div>
+
+        {temFiltro && (
             <button className="btn btn-ghost" onClick={limparFiltros}>
               Limpar filtros
             </button>

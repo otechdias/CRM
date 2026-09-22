@@ -1,3 +1,4 @@
+// FRONTEND/PLANOS
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -258,6 +259,8 @@ export default function PlanosPage() {
 
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroDataDe, setFiltroDataDe] = useState("");
+  const [filtroDataAte, setFiltroDataAte] = useState("");
 
   const [carregando, setCarregando] = useState(false);
   const [erroLista, setErroLista] =
@@ -434,10 +437,10 @@ export default function PlanosPage() {
     const termo = busca.trim().toLowerCase();
 
     return planos.filter((plano) => {
-      if (filtroStatus && plano.status_plano !== filtroStatus) {
-        return false;
-      }
-
+      if (filtroStatus && plano.status_plano !== filtroStatus) return false;
+      const data = (plano.proximo_vencimento || plano.data_inicio || plano.created_at || "").slice(0, 10);
+      if (filtroDataDe && (!data || data < filtroDataDe)) return false;
+      if (filtroDataAte && (!data || data > filtroDataAte)) return false;
       if (!termo) return true;
 
       const texto = [
@@ -452,7 +455,7 @@ export default function PlanosPage() {
 
       return texto.includes(termo);
     });
-  }, [planos, busca, filtroStatus]);
+  }, [planos, busca, filtroStatus, filtroDataDe, filtroDataAte]);
 
   /* =======================================================
      RENDER
@@ -508,6 +511,9 @@ export default function PlanosPage() {
             ))}
           </select>
 
+          <input type="date" className="input input-bordered" value={filtroDataDe} onChange={(e) => setFiltroDataDe(e.target.value)} title="Data inicial" />
+          <input type="date" className="input input-bordered" value={filtroDataAte} onChange={(e) => setFiltroDataAte(e.target.value)} title="Data final" />
+          <button className="btn btn-outline" onClick={() => { setBusca(""); setFiltroStatus(""); setFiltroDataDe(""); setFiltroDataAte(""); }} disabled={!busca && !filtroStatus && !filtroDataDe && !filtroDataAte}>Limpar filtros</button>
           <button
             className="btn btn-outline"
             onClick={carregar}
