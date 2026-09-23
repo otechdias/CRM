@@ -70,6 +70,7 @@ def normalizar_texto(valor):
     """
     Normaliza textos para comparação dos filtros.
     """
+
     if valor is None:
         return ""
 
@@ -80,6 +81,7 @@ def aplicar_filtro_texto(query, campo, valor):
     """
     Aplica filtro case-insensitive quando o valor existe.
     """
+
     if valor:
         return query.filter(
             func.lower(campo) == normalizar_texto(valor)
@@ -139,7 +141,8 @@ def dashboard():
 
     if responsavel:
         query_leads = query_leads.filter(
-            func.lower(Lead.responsavel) == normalizar_texto(responsavel)
+            func.lower(Lead.responsavel)
+            == normalizar_texto(responsavel)
         )
 
     # --------------------------------------------------------
@@ -148,7 +151,8 @@ def dashboard():
 
     if origem:
         query_leads = query_leads.filter(
-            func.lower(Lead.origem_lead) == normalizar_texto(origem)
+            func.lower(Lead.origem_lead)
+            == normalizar_texto(origem)
         )
 
     # --------------------------------------------------------
@@ -157,7 +161,8 @@ def dashboard():
 
     if ramo:
         query_leads = query_leads.filter(
-            func.lower(Lead.ramo) == normalizar_texto(ramo)
+            func.lower(Lead.ramo)
+            == normalizar_texto(ramo)
         )
 
     # --------------------------------------------------------
@@ -166,7 +171,8 @@ def dashboard():
 
     if status:
         query_leads = query_leads.filter(
-            func.lower(Lead.status_lead) == normalizar_texto(status)
+            func.lower(Lead.status_lead)
+            == normalizar_texto(status)
         )
 
     # --------------------------------------------------------
@@ -175,7 +181,8 @@ def dashboard():
 
     if etapa:
         query_leads = query_leads.filter(
-            func.lower(Lead.etapa_comercial) == normalizar_texto(etapa)
+            func.lower(Lead.etapa_comercial)
+            == normalizar_texto(etapa)
         )
 
     # ========================================================
@@ -200,7 +207,8 @@ def dashboard():
 
         if periodo == "hoje":
             query_leads = query_leads.filter(
-                func.date(Lead.created_at) == func.current_date()
+                func.date(Lead.created_at)
+                == func.current_date()
             )
 
         elif periodo == "7":
@@ -230,7 +238,10 @@ def dashboard():
         elif periodo == "ano":
             query_leads = query_leads.filter(
                 func.extract("year", Lead.created_at)
-                == func.extract("year", func.current_date())
+                == func.extract(
+                    "year",
+                    func.current_date()
+                )
             )
 
     leads = query_leads.all()
@@ -242,23 +253,30 @@ def dashboard():
     total_leads = len(leads)
 
     leads_novos = sum(
-        1 for lead in leads
+        1
+        for lead in leads
         if normalizar_texto(lead.status_lead) == "novo"
     )
 
     leads_andamento = sum(
-        1 for lead in leads
-        if normalizar_texto(lead.status_lead) == "em andamento"
+        1
+        for lead in leads
+        if normalizar_texto(lead.status_lead)
+        == "em andamento"
     )
 
     leads_convertidos = sum(
-        1 for lead in leads
-        if normalizar_texto(lead.status_lead) == "convertido"
+        1
+        for lead in leads
+        if normalizar_texto(lead.status_lead)
+        == "convertido"
     )
 
     leads_perdidos = sum(
-        1 for lead in leads
-        if normalizar_texto(lead.status_lead) == "perdido"
+        1
+        for lead in leads
+        if normalizar_texto(lead.status_lead)
+        == "perdido"
     )
 
     # ========================================================
@@ -457,7 +475,9 @@ def dashboard():
         if not lead.created_at:
             continue
 
-        periodo_data = lead.created_at.strftime("%Y-%m-%d")
+        periodo_data = lead.created_at.strftime(
+            "%Y-%m-%d"
+        )
 
         if periodo_data not in evolucao:
             evolucao[periodo_data] = {
@@ -503,7 +523,8 @@ def dashboard():
     clientes_ativos = sum(
         1
         for cliente in clientes
-        if normalizar_texto(cliente.status_cliente) == "ativo"
+        if normalizar_texto(cliente.status_cliente)
+        == "ativo"
     )
 
     # ========================================================
@@ -518,7 +539,8 @@ def dashboard():
         projetos = [
             projeto
             for projeto in projetos
-            if termo_busca in normalizar_texto(projeto.nome_projeto)
+            if termo_busca
+            in normalizar_texto(projeto.nome_projeto)
         ]
 
     projetos_andamento = sum(
@@ -563,28 +585,54 @@ def dashboard():
 
     pagamentos = db.session.query(Pagamento).all()
 
+    # --------------------------------------------------------
+    # PAGAMENTOS EM ABERTO
+    #
+    # Pendente + Atrasado = ainda não recebidos
+    # --------------------------------------------------------
+
     pagamentos_pendentes_lista = [
         pagamento
         for pagamento in pagamentos
-        if normalizar_texto(pagamento.status_pagamento)
-        == "pendente"
+        if normalizar_texto(
+            pagamento.status_pagamento
+        ) in ["pendente", "atrasado"]
     ]
+
+    # --------------------------------------------------------
+    # PAGAMENTOS PAGOS
+    # --------------------------------------------------------
 
     pagamentos_pagos_lista = [
         pagamento
         for pagamento in pagamentos
-        if normalizar_texto(pagamento.status_pagamento)
-        == "pago"
+        if normalizar_texto(
+            pagamento.status_pagamento
+        ) == "pago"
     ]
+
+    # --------------------------------------------------------
+    # QUANTIDADE DE PAGAMENTOS PENDENTES
+    # --------------------------------------------------------
 
     pagamentos_pendentes = len(
         pagamentos_pendentes_lista
     )
 
+    # --------------------------------------------------------
+    # VALOR TOTAL DOS PAGAMENTOS PENDENTES
+    # --------------------------------------------------------
+
     valor_pagamentos_pendentes = sum(
         converter_valor(pagamento.valor)
         for pagamento in pagamentos_pendentes_lista
     )
+
+    # --------------------------------------------------------
+    # RECEITA
+    #
+    # Somente pagamentos com status Pago
+    # --------------------------------------------------------
 
     receita = sum(
         converter_valor(pagamento.valor)
@@ -635,11 +683,20 @@ def dashboard():
     planos_ativos_lista = [
         plano
         for plano in planos
-        if normalizar_texto(plano.status_plano)
-        == "ativo"
+        if normalizar_texto(
+            plano.status_plano
+        ) == "ativo"
     ]
 
-    planos_ativos = len(planos_ativos_lista)
+    planos_ativos = len(
+        planos_ativos_lista
+    )
+
+    # ========================================================
+    # MRR
+    #
+    # Somente planos com status Ativo
+    # ========================================================
 
     mrr = sum(
         converter_valor(plano.valor_mensal)
@@ -672,9 +729,13 @@ def dashboard():
 
             if (
                 termo_busca
-                not in normalizar_texto(lead.nome_empresa)
+                not in normalizar_texto(
+                    lead.nome_empresa
+                )
                 and termo_busca
-                not in normalizar_texto(lead.nome_contato)
+                not in normalizar_texto(
+                    lead.nome_contato
+                )
             ):
                 continue
 
@@ -690,7 +751,9 @@ def dashboard():
                 else None
             ),
             "horario": (
-                lead.horario_proxima_acao.strftime("%H:%M")
+                lead.horario_proxima_acao.strftime(
+                    "%H:%M"
+                )
                 if lead.horario_proxima_acao
                 else None
             ),

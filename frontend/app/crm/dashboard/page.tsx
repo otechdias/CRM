@@ -1552,13 +1552,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {/* CLIENTES */}
+        {/* CLIENTES ATIVOS */}
 
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
           onClick={() =>
-            navegar("/crm/clientes")
+            navegar("/crm/clientes?status=Ativo")
           }
         >
 
@@ -1573,7 +1573,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="text-xs text-primary mt-1">
-              Ver clientes →
+              Ver clientes ativos →
             </div>
 
           </div>
@@ -1651,7 +1651,7 @@ export default function DashboardPage() {
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
           onClick={() =>
-            navegar("/crm/pagamentos")
+            navegar("/crm/pagamentos?status=Pago")
           }
         >
 
@@ -1683,7 +1683,7 @@ export default function DashboardPage() {
 
 
       {/* =====================================================
-          PLANOS + MRR
+          PLANOS RECORRENTES
       ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1692,7 +1692,7 @@ export default function DashboardPage() {
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
           onClick={() =>
-            navegar("/crm/planos")
+            navegar("/crm/planos?status=Ativo")
           }
         >
 
@@ -1718,12 +1718,15 @@ export default function DashboardPage() {
 
         </button>
 
+      {/* =====================================================
+          RECEITA RECORRENTE MENSAL MRR
+      ====================================================== */}
 
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
           onClick={() =>
-            navegar("/crm/planos")
+            navegar("/crm/planos?status=Ativo")
           }
         >
 
