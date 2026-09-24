@@ -18,46 +18,116 @@ dashboard_bp = Blueprint("dashboard", __name__)
 # AUXILIARES
 # ============================================================
 
+# def converter_valor(valor):
+    # """
+    # Converte valores como:
+    #     1500
+    #     "1500"
+    #     "1500.50"
+    #     "R$ 1.500,50"
+    #     "1.500,50"
+
+    # para float.
+    # """
+
+    # if valor is None:
+    #     return 0.0
+
+    # try:
+    #     if isinstance(valor, (int, float)):
+    #         return float(valor)
+
+    #     texto = str(valor).strip()
+
+    #     if not texto:
+    #         return 0.0
+
+    #     texto = (
+    #         texto
+    #         .replace("R$", "")
+    #         .replace("r$", "")
+    #         .replace(" ", "")
+    #     )
+
+    #     if "," in texto:
+    #         texto = texto.replace(".", "")
+    #         texto = texto.replace(",", ".")
+
+    #     return float(texto)
+
+    # except (ValueError, TypeError):
+    #     return 0.0
 def converter_valor(valor):
     """
-    Converte valores como:
-        1500
-        "1500"
-        "1500.50"
-        "R$ 1.500,50"
-        "1.500,50"
-
-    para float.
+    Converte as faixas de potencial de lead em valores
+    aproximados para cálculo de ticket médio e valor potencial.
     """
 
     if valor is None:
         return 0.0
 
+    if isinstance(valor, (int, float)):
+        return float(valor)
+
+    texto = str(valor).strip().replace(" ", "")
+
+    faixas_potencial = {
+        "AtéR$500": 250.0,
+        "R$500–1.000": 750.0,
+        "R$1.000–1.500": 1250.0,
+        "R$1.500–2.000": 1750.0,
+        "R$2.000–2.500": 2250.0,
+        "R$2.500–3.000": 2750.0,
+        "R$3.000–3.500": 3250.0,
+        "R$3.500–4.000": 3750.0,
+        "R$4.000–4.500": 4250.0,
+        "R$4.500–5.000": 4750.0,
+        "R$5.000–5.500": 5250.0,
+        "R$5.500–6.000": 5750.0,
+        "R$6.000–6.500": 6250.0,
+        "R$6.500–7.000": 6750.0,
+        "R$7.000–7.500": 7250.0,
+        "R$7.500–8.000": 7750.0,
+        "R$8.000–8.500": 8250.0,
+        "R$8.500–9.000": 8750.0,
+        "R$9.000–9.500": 9250.0,
+        "R$9.500–10.000": 9750.0,
+        "R$10.000–11.000": 10500.0,
+        "R$11.000–12.000": 11500.0,
+        "R$12.000–13.000": 12500.0,
+        "R$13.000–14.000": 13500.0,
+        "R$14.000–15.000": 14500.0,
+        "R$15.000–17.500": 16250.0,
+        "R$17.500–20.000": 18750.0,
+        "R$20.000–25.000": 22500.0,
+        "R$25.000–30.000": 27500.0,
+        "R$30.000–40.000": 35000.0,
+        "R$40.000–50.000": 45000.0,
+        # Não existe limite superior para essa faixa.
+        # R$50.000 é usado apenas como referência mínima.
+        "AcimadeR$50.000": 50000.0,
+        "Nãoinformado": 0.0,
+    }
+
+    if texto in faixas_potencial:
+        return faixas_potencial[texto]
+
+    # Permite também valores numéricos diretos
     try:
-        if isinstance(valor, (int, float)):
-            return float(valor)
-
-        texto = str(valor).strip()
-
-        if not texto:
-            return 0.0
-
-        texto = (
+        texto_numerico = (
             texto
             .replace("R$", "")
             .replace("r$", "")
-            .replace(" ", "")
         )
 
-        if "," in texto:
-            texto = texto.replace(".", "")
-            texto = texto.replace(",", ".")
+        if "," in texto_numerico:
+            texto_numerico = texto_numerico.replace(".", "")
+            texto_numerico = texto_numerico.replace(",", ".")
 
-        return float(texto)
+        return float(texto_numerico)
 
     except (ValueError, TypeError):
         return 0.0
-
 
 def percentual(parte, total):
     if not total:
@@ -282,6 +352,48 @@ def dashboard():
     # ========================================================
     # VALOR POTENCIAL
     # ========================================================
+
+
+
+    # valor_potencial = sum(
+    #     converter_valor(lead.potencial_valor)
+    #     for lead in leads
+    # )
+
+    # leads_com_valor = [
+    #     lead
+    #     for lead in leads
+    #     if converter_valor(lead.potencial_valor) > 0
+    # ]
+
+    # ticket_potencial_medio = (
+    #     valor_potencial / len(leads_com_valor)
+    #     if leads_com_valor
+    #     else 0
+    # )
+    
+
+
+
+
+
+
+    # ========================================================
+# VALOR POTENCIAL - DEBUG
+# ========================================================
+
+    print("\n========== DEBUG POTENCIAL ==========")
+
+    for lead in leads:
+        print(
+            f"ID={lead.id} | "
+            f"EMPRESA={lead.nome_empresa} | "
+            f"POTENCIAL={repr(lead.potencial_valor)} | "
+            f"TIPO={type(lead.potencial_valor)} | "
+            f"CONVERTIDO={converter_valor(lead.potencial_valor)}"
+        )
+
+    print("=====================================\n")
 
     valor_potencial = sum(
         converter_valor(lead.potencial_valor)

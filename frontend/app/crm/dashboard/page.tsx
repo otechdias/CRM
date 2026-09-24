@@ -21,6 +21,16 @@ import {
 
 import * as XLSX from "xlsx";
 
+import {
+  CustomTooltip,
+  corPorIndice,
+  CORES_RESPONSAVEIS,
+  CORES_MOTIVOS_PERDA,
+  CORES_STATUS_PAGAMENTO,
+  CORES_STATUS_PROJETO,
+  navigateWithFilter,
+} from "../../../lib/dashboardTheme";
+
 
 // ============================================================
 // TIPOS
@@ -154,22 +164,6 @@ interface DashboardData {
 
 
 // ============================================================
-// CORES DOS GRÁFICOS
-// ============================================================
-
-const CORES_GRAFICOS = [
-  "#570df8",
-  "#37cdbe",
-  "#f87272",
-  "#fbbd23",
-  "#3abff8",
-  "#a991f7",
-  "#36d399",
-  "#fb7185",
-];
-
-
-// ============================================================
 // COMPONENTE
 // ============================================================
 
@@ -186,6 +180,13 @@ export default function DashboardPage() {
     useState(true);
 
   const [erro, setErro] =
+    useState<string | null>(null);
+
+  const [atualizando, setAtualizando] =
+    useState(false);
+
+  // Legenda clicável do gráfico de Origem
+  const [origemSelecionada, setOrigemSelecionada] =
     useState<string | null>(null);
 
   // Filtros
@@ -221,11 +222,16 @@ export default function DashboardPage() {
   // BUSCAR DASHBOARD
   // ==========================================================
 
-  const carregarDashboard = async () => {
+  const carregarDashboard = async (comLoadingGlobal = true) => {
 
     try {
 
-      setLoading(true);
+      if (comLoadingGlobal) {
+        setLoading(true);
+      } else {
+        setAtualizando(true);
+      }
+
       setErro(null);
 
       const params = new URLSearchParams();
@@ -293,6 +299,7 @@ export default function DashboardPage() {
     } finally {
 
       setLoading(false);
+      setAtualizando(false);
 
     }
   };
@@ -330,6 +337,16 @@ export default function DashboardPage() {
       carregarDashboard();
 
     }, 0);
+  };
+
+
+  // ==========================================================
+  // BOTÃO ATUALIZAR (sem F5, respeita filtros atuais)
+  // ==========================================================
+
+  const handleAtualizar = () => {
+    if (atualizando) return;
+    carregarDashboard(false);
   };
 
 
@@ -432,6 +449,18 @@ export default function DashboardPage() {
   }, [dashboard]);
 
 
+  const leadsPorRamoGrafico = useMemo(() => {
+
+    if (!dashboard) return [];
+
+    return [...dashboard.graficos.leads_por_ramo]
+      .filter(item => item.quantidade > 0)
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 10);
+
+  }, [dashboard]);
+
+
   // ==========================================================
   // EXPORTAÇÃO CSV
   // ==========================================================
@@ -443,97 +472,25 @@ export default function DashboardPage() {
     }
 
     const linhas = [
-      [
-        "Indicador",
-        "Valor",
-      ],
-
-      [
-        "Total de Leads",
-        dashboard.leads.total,
-      ],
-
-      [
-        "Leads Novos",
-        dashboard.leads.novos,
-      ],
-
-      [
-        "Leads em Andamento",
-        dashboard.leads.andamento,
-      ],
-
-      [
-        "Leads Convertidos",
-        dashboard.leads.convertidos,
-      ],
-
-      [
-        "Leads Perdidos",
-        dashboard.leads.perdidos,
-      ],
-
-      [
-        "Clientes Ativos",
-        dashboard.clientes.ativos,
-      ],
-
-      [
-        "Projetos em Andamento",
-        dashboard.projetos.andamento,
-      ],
-
-      [
-        "Projetos Totais",
-        dashboard.projetos.total,
-      ],
-
-      [
-        "Pagamentos Pendentes",
-        dashboard.pagamentos.pendentes,
-      ],
-
-      [
-        "Valor Pendente",
-        dashboard.pagamentos.valor_pendente,
-      ],
-
-      [
-        "Receita",
-        dashboard.pagamentos.receita,
-      ],
-
-      [
-        "Planos Ativos",
-        dashboard.planos.ativos,
-      ],
-
-      [
-        "MRR",
-        dashboard.planos.mrr,
-      ],
-
-      [
-        "Taxa de Conversão",
-        dashboard.indicadores.taxa_conversao,
-      ],
-
-      [
-        "Taxa de Perda",
-        dashboard.indicadores.taxa_perda,
-      ],
-
-      [
-        "Valor Potencial",
-        dashboard.indicadores.valor_potencial,
-      ],
-
-      [
-        "Ticket Potencial Médio",
-        dashboard.indicadores.ticket_potencial_medio,
-      ],
+      ["Indicador", "Valor"],
+      ["Total de Leads", dashboard.leads.total],
+      ["Leads Novos", dashboard.leads.novos],
+      ["Leads em Andamento", dashboard.leads.andamento],
+      ["Leads Convertidos", dashboard.leads.convertidos],
+      ["Leads Perdidos", dashboard.leads.perdidos],
+      ["Clientes Ativos", dashboard.clientes.ativos],
+      ["Projetos em Andamento", dashboard.projetos.andamento],
+      ["Projetos Totais", dashboard.projetos.total],
+      ["Pagamentos Pendentes", dashboard.pagamentos.pendentes],
+      ["Valor Pendente", dashboard.pagamentos.valor_pendente],
+      ["Receita", dashboard.pagamentos.receita],
+      ["Planos Ativos", dashboard.planos.ativos],
+      ["MRR", dashboard.planos.mrr],
+      ["Taxa de Conversão", dashboard.indicadores.taxa_conversao],
+      ["Taxa de Perda", dashboard.indicadores.taxa_perda],
+      ["Valor Potencial", dashboard.indicadores.valor_potencial],
+      ["Ticket Potencial Médio", dashboard.indicadores.ticket_potencial_medio],
     ];
-
 
     const csv =
       linhas
@@ -600,95 +557,24 @@ export default function DashboardPage() {
       XLSX.utils.book_new();
 
 
-    // --------------------------------------------------------
-    // RESUMO
-    // --------------------------------------------------------
-
     const resumo = [
-      {
-        Indicador: "Total de Leads",
-        Valor: dashboard.leads.total,
-      },
-
-      {
-        Indicador: "Leads Novos",
-        Valor: dashboard.leads.novos,
-      },
-
-      {
-        Indicador: "Leads em Andamento",
-        Valor: dashboard.leads.andamento,
-      },
-
-      {
-        Indicador: "Leads Convertidos",
-        Valor: dashboard.leads.convertidos,
-      },
-
-      {
-        Indicador: "Leads Perdidos",
-        Valor: dashboard.leads.perdidos,
-      },
-
-      {
-        Indicador: "Clientes Ativos",
-        Valor: dashboard.clientes.ativos,
-      },
-
-      {
-        Indicador: "Projetos em Andamento",
-        Valor: dashboard.projetos.andamento,
-      },
-
-      {
-        Indicador: "Projetos Totais",
-        Valor: dashboard.projetos.total,
-      },
-
-      {
-        Indicador: "Pagamentos Pendentes",
-        Valor: dashboard.pagamentos.pendentes,
-      },
-
-      {
-        Indicador: "Valor Pendente",
-        Valor: dashboard.pagamentos.valor_pendente,
-      },
-
-      {
-        Indicador: "Receita",
-        Valor: dashboard.pagamentos.receita,
-      },
-
-      {
-        Indicador: "Planos Ativos",
-        Valor: dashboard.planos.ativos,
-      },
-
-      {
-        Indicador: "MRR",
-        Valor: dashboard.planos.mrr,
-      },
-
-      {
-        Indicador: "Taxa de Conversão",
-        Valor: dashboard.indicadores.taxa_conversao,
-      },
-
-      {
-        Indicador: "Taxa de Perda",
-        Valor: dashboard.indicadores.taxa_perda,
-      },
-
-      {
-        Indicador: "Valor Potencial",
-        Valor: dashboard.indicadores.valor_potencial,
-      },
-
-      {
-        Indicador: "Ticket Potencial Médio",
-        Valor: dashboard.indicadores.ticket_potencial_medio,
-      },
+      { Indicador: "Total de Leads", Valor: dashboard.leads.total },
+      { Indicador: "Leads Novos", Valor: dashboard.leads.novos },
+      { Indicador: "Leads em Andamento", Valor: dashboard.leads.andamento },
+      { Indicador: "Leads Convertidos", Valor: dashboard.leads.convertidos },
+      { Indicador: "Leads Perdidos", Valor: dashboard.leads.perdidos },
+      { Indicador: "Clientes Ativos", Valor: dashboard.clientes.ativos },
+      { Indicador: "Projetos em Andamento", Valor: dashboard.projetos.andamento },
+      { Indicador: "Projetos Totais", Valor: dashboard.projetos.total },
+      { Indicador: "Pagamentos Pendentes", Valor: dashboard.pagamentos.pendentes },
+      { Indicador: "Valor Pendente", Valor: dashboard.pagamentos.valor_pendente },
+      { Indicador: "Receita", Valor: dashboard.pagamentos.receita },
+      { Indicador: "Planos Ativos", Valor: dashboard.planos.ativos },
+      { Indicador: "MRR", Valor: dashboard.planos.mrr },
+      { Indicador: "Taxa de Conversão", Valor: dashboard.indicadores.taxa_conversao },
+      { Indicador: "Taxa de Perda", Valor: dashboard.indicadores.taxa_perda },
+      { Indicador: "Valor Potencial", Valor: dashboard.indicadores.valor_potencial },
+      { Indicador: "Ticket Potencial Médio", Valor: dashboard.indicadores.ticket_potencial_medio },
     ];
 
 
@@ -697,11 +583,6 @@ export default function DashboardPage() {
       XLSX.utils.json_to_sheet(resumo),
       "Resumo"
     );
-
-
-    // --------------------------------------------------------
-    // FUNIL
-    // --------------------------------------------------------
 
     XLSX.utils.book_append_sheet(
       workbook,
@@ -714,161 +595,100 @@ export default function DashboardPage() {
       "Funil"
     );
 
-
-    // --------------------------------------------------------
-    // ORIGENS
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.leads_por_origem.map(
-          item => ({
-            Origem: item.origem,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.leads_por_origem.map(item => ({
+          Origem: item.origem,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Origens"
     );
 
-
-    // --------------------------------------------------------
-    // RESPONSÁVEIS
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.leads_por_responsavel.map(
-          item => ({
-            Responsavel: item.responsavel,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.leads_por_responsavel.map(item => ({
+          Responsavel: item.responsavel,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Responsáveis"
     );
 
-
-    // --------------------------------------------------------
-    // RAMOS
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.leads_por_ramo.map(
-          item => ({
-            Ramo: item.ramo,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.leads_por_ramo.map(item => ({
+          Ramo: item.ramo,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Ramos"
     );
 
-
-    // --------------------------------------------------------
-    // MOTIVOS DE PERDA
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.motivos_de_perda.map(
-          item => ({
-            Motivo: item.motivo,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.motivos_de_perda.map(item => ({
+          Motivo: item.motivo,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Motivos de Perda"
     );
 
-
-    // --------------------------------------------------------
-    // EVOLUÇÃO
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.evolucao_leads.map(
-          item => ({
-            Data: item.data,
-            Leads: item.leads,
-            Convertidos: item.convertidos,
-            Perdidos: item.perdidos,
-          })
-        )
+        dashboard.graficos.evolucao_leads.map(item => ({
+          Data: item.data,
+          Leads: item.leads,
+          Convertidos: item.convertidos,
+          Perdidos: item.perdidos,
+        }))
       ),
       "Evolução"
     );
 
-
-    // --------------------------------------------------------
-    // PROJETOS
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.projetos_por_status.map(
-          item => ({
-            Status: item.status,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.projetos_por_status.map(item => ({
+          Status: item.status,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Projetos"
     );
 
-
-    // --------------------------------------------------------
-    // PAGAMENTOS
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.graficos.pagamentos_por_status.map(
-          item => ({
-            Status: item.status,
-            Quantidade: item.quantidade,
-          })
-        )
+        dashboard.graficos.pagamentos_por_status.map(item => ({
+          Status: item.status,
+          Quantidade: item.quantidade,
+        }))
       ),
       "Pagamentos"
     );
 
-
-    // --------------------------------------------------------
-    // PRÓXIMAS AÇÕES
-    // --------------------------------------------------------
-
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.json_to_sheet(
-        dashboard.proximas_acoes.map(
-          item => ({
-            Data: item.data,
-            Horário: item.horario,
-            Empresa: item.empresa,
-            Ação: item.acao,
-            Responsável: item.responsavel,
-            Prioridade: item.prioridade,
-            Status: item.status,
-          })
-        )
+        dashboard.proximas_acoes.map(item => ({
+          Data: item.data,
+          Horário: item.horario,
+          Empresa: item.empresa,
+          Ação: item.acao,
+          Responsável: item.responsavel,
+          Prioridade: item.prioridade,
+          Status: item.status,
+        }))
       ),
       "Próximas Ações"
     );
-
-
-    // --------------------------------------------------------
-    // DOWNLOAD
-    // --------------------------------------------------------
 
     XLSX.writeFile(
       workbook,
@@ -888,13 +708,9 @@ export default function DashboardPage() {
 
     return (
       <div className="p-6">
-
         <div className="flex items-center justify-center min-h-[400px]">
-
           <span className="loading loading-spinner loading-lg"></span>
-
         </div>
-
       </div>
     );
 
@@ -909,21 +725,17 @@ export default function DashboardPage() {
 
     return (
       <div className="p-6">
-
         <div className="alert alert-error">
-
           <span>{erro}</span>
 
           <button
             type="button"
             className="btn btn-sm"
-            onClick={carregarDashboard}
+            onClick={() => carregarDashboard()}
           >
             Tentar novamente
           </button>
-
         </div>
-
       </div>
     );
 
@@ -950,15 +762,11 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 
         <div>
-
-          <h1 className="text-3xl font-bold">
-            Dashboard
-          </h1>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
 
           <p className="text-base-content/60 mt-1">
             Visão geral do seu CRM e desempenho comercial
           </p>
-
         </div>
 
 
@@ -967,9 +775,15 @@ export default function DashboardPage() {
           <button
             type="button"
             className="btn btn-outline"
-            onClick={carregarDashboard}
+            onClick={handleAtualizar}
+            disabled={atualizando}
           >
-            ↻ Atualizar
+            <span
+              className={atualizando ? "animate-spin inline-block" : "inline-block"}
+            >
+              ↻
+            </span>
+            {atualizando ? "Atualizando..." : "Atualizar"}
           </button>
 
           <button
@@ -1002,30 +816,19 @@ export default function DashboardPage() {
         <div className="card-body">
 
           <div className="flex flex-col gap-1">
-
-            <h2 className="card-title">
-              Filtros do Dashboard
-            </h2>
+            <h2 className="card-title">Filtros do Dashboard</h2>
 
             <p className="text-sm text-base-content/60">
               Todos os indicadores e gráficos abaixo respeitam os filtros selecionados.
             </p>
-
           </div>
 
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
 
-            {/* PESQUISA */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Pesquisar
-                </span>
-
+                <span className="label-text">Pesquisar</span>
               </div>
 
               <input
@@ -1033,315 +836,156 @@ export default function DashboardPage() {
                 className="input input-bordered w-full"
                 placeholder="Empresa, contato, telefone..."
                 value={busca}
-                onChange={event =>
-                  setBusca(event.target.value)
-                }
+                onChange={event => setBusca(event.target.value)}
                 onKeyDown={event => {
-
                   if (event.key === "Enter") {
                     carregarDashboard();
                   }
-
                 }}
               />
-
             </label>
 
 
-            {/* PERÍODO */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Período
-                </span>
-
+                <span className="label-text">Período</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={periodo}
-                onChange={event =>
-                  setPeriodo(event.target.value)
-                }
+                onChange={event => setPeriodo(event.target.value)}
               >
-
-                <option value="todos">
-                  Todos os períodos
-                </option>
-
-                <option value="hoje">
-                  Hoje
-                </option>
-
-                <option value="7">
-                  Últimos 7 dias
-                </option>
-
-                <option value="30">
-                  Últimos 30 dias
-                </option>
-
-                <option value="90">
-                  Últimos 90 dias
-                </option>
-
-                <option value="ano">
-                  Este ano
-                </option>
-
+                <option value="todos">Todos os períodos</option>
+                <option value="hoje">Hoje</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="ano">Este ano</option>
               </select>
-
             </label>
 
 
-            {/* RESPONSÁVEL */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Responsável
-                </span>
-
+                <span className="label-text">Responsável</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={responsavel}
-                onChange={event =>
-                  setResponsavel(event.target.value)
-                }
+                onChange={event => setResponsavel(event.target.value)}
               >
+                <option value="">Todos</option>
 
-                <option value="">
-                  Todos
-                </option>
-
-                {dashboard.filtros.responsaveis.map(
-                  item => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {dashboard.filtros.responsaveis.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
-
             </label>
 
 
-            {/* ORIGEM */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Origem
-                </span>
-
+                <span className="label-text">Origem</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={origem}
-                onChange={event =>
-                  setOrigem(event.target.value)
-                }
+                onChange={event => setOrigem(event.target.value)}
               >
+                <option value="">Todas</option>
 
-                <option value="">
-                  Todas
-                </option>
-
-                {dashboard.filtros.origens.map(
-                  item => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {dashboard.filtros.origens.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
-
             </label>
 
 
-            {/* RAMO */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Ramo
-                </span>
-
+                <span className="label-text">Ramo</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={ramo}
-                onChange={event =>
-                  setRamo(event.target.value)
-                }
+                onChange={event => setRamo(event.target.value)}
               >
+                <option value="">Todos</option>
 
-                <option value="">
-                  Todos
-                </option>
-
-                {dashboard.filtros.ramos.map(
-                  item => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {dashboard.filtros.ramos.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
-
             </label>
 
 
-            {/* STATUS */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Status do Lead
-                </span>
-
+                <span className="label-text">Status do Lead</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={status}
-                onChange={event =>
-                  setStatus(event.target.value)
-                }
+                onChange={event => setStatus(event.target.value)}
               >
+                <option value="">Todos</option>
 
-                <option value="">
-                  Todos
-                </option>
-
-                {dashboard.filtros.status.map(
-                  item => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {dashboard.filtros.status.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
-
             </label>
 
 
-            {/* ETAPA */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Etapa Comercial
-                </span>
-
+                <span className="label-text">Etapa Comercial</span>
               </div>
 
               <select
                 className="select select-bordered w-full"
                 value={etapa}
-                onChange={event =>
-                  setEtapa(event.target.value)
-                }
+                onChange={event => setEtapa(event.target.value)}
               >
+                <option value="">Todas</option>
 
-                <option value="">
-                  Todas
-                </option>
-
-                {dashboard.filtros.etapas.map(
-                  item => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {dashboard.filtros.etapas.map(item => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
-
             </label>
 
 
-            {/* DATA INICIAL */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Data inicial
-                </span>
-
+                <span className="label-text">Data inicial</span>
               </div>
 
               <input
                 type="date"
                 className="input input-bordered w-full"
                 value={dataInicio}
-                onChange={event =>
-                  setDataInicio(event.target.value)
-                }
+                onChange={event => setDataInicio(event.target.value)}
               />
-
             </label>
 
 
-            {/* DATA FINAL */}
-
             <label className="form-control">
-
               <div className="label">
-
-                <span className="label-text">
-                  Data final
-                </span>
-
+                <span className="label-text">Data final</span>
               </div>
 
               <input
                 type="date"
                 className="input input-bordered w-full"
                 value={dataFim}
-                onChange={event =>
-                  setDataFim(event.target.value)
-                }
+                onChange={event => setDataFim(event.target.value)}
               />
-
             </label>
 
           </div>
@@ -1352,7 +996,7 @@ export default function DashboardPage() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={carregarDashboard}
+              onClick={() => carregarDashboard()}
             >
               Aplicar filtros
             </button>
@@ -1379,166 +1023,80 @@ export default function DashboardPage() {
       <div>
 
         <div className="flex items-center justify-between mb-3">
-
           <div>
-
-            <h2 className="text-xl font-bold">
-              Comercial
-            </h2>
+            <h2 className="text-xl font-bold">Comercial</h2>
 
             <p className="text-sm text-base-content/60">
               Visão dos leads conforme os filtros aplicados
             </p>
-
           </div>
-
         </div>
 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
-          {/* TOTAL */}
-
           <button
             type="button"
             className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-            onClick={() =>
-              navegar("/crm/leads")
-            }
+            onClick={() => navegar("/crm/leads")}
           >
-
             <div className="card-body">
-
-              <div className="text-sm text-base-content/60">
-                Total de Leads
-              </div>
-
-              <div className="text-3xl font-bold">
-                {dashboard.leads.total}
-              </div>
-
-              <div className="text-xs text-primary mt-1">
-                Ver leads →
-              </div>
-
+              <div className="text-sm text-base-content/60">Total de Leads</div>
+              <div className="text-3xl font-bold">{dashboard.leads.total}</div>
+              <div className="text-xs text-primary mt-1">Ver leads →</div>
             </div>
-
           </button>
 
 
-          {/* NOVOS */}
-
           <button
             type="button"
             className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-            onClick={() =>
-              navegar("/crm/leads?status=Novo")
-            }
+            onClick={() => navegar("/crm/leads?status=Novo")}
           >
-
             <div className="card-body">
-
-              <div className="text-sm text-base-content/60">
-                Leads Novos
-              </div>
-
-              <div className="text-3xl font-bold">
-                {dashboard.leads.novos}
-              </div>
-
-              <div className="text-xs text-primary mt-1">
-                Ver leads novos →
-              </div>
-
+              <div className="text-sm text-base-content/60">Leads Novos</div>
+              <div className="text-3xl font-bold">{dashboard.leads.novos}</div>
+              <div className="text-xs text-primary mt-1">Ver leads novos →</div>
             </div>
-
           </button>
 
 
-          {/* ANDAMENTO */}
-
           <button
             type="button"
             className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-            onClick={() =>
-              navegar("/crm/leads?status=Em%20andamento")
-            }
+            onClick={() => navegar("/crm/leads?status=Em%20andamento")}
           >
-
             <div className="card-body">
-
-              <div className="text-sm text-base-content/60">
-                Em Andamento
-              </div>
-
-              <div className="text-3xl font-bold">
-                {dashboard.leads.andamento}
-              </div>
-
-              <div className="text-xs text-primary mt-1">
-                Ver leads →
-              </div>
-
+              <div className="text-sm text-base-content/60">Em Andamento</div>
+              <div className="text-3xl font-bold">{dashboard.leads.andamento}</div>
+              <div className="text-xs text-primary mt-1">Ver leads →</div>
             </div>
-
           </button>
 
 
-          {/* CONVERTIDOS */}
-
           <button
             type="button"
             className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-            onClick={() =>
-              navegar("/crm/leads?status=Convertido")
-            }
+            onClick={() => navegar("/crm/leads?status=Convertido")}
           >
-
             <div className="card-body">
-
-              <div className="text-sm text-base-content/60">
-                Convertidos
-              </div>
-
-              <div className="text-3xl font-bold">
-                {dashboard.leads.convertidos}
-              </div>
-
-              <div className="text-xs text-primary mt-1">
-                Ver convertidos →
-              </div>
-
+              <div className="text-sm text-base-content/60">Convertidos</div>
+              <div className="text-3xl font-bold">{dashboard.leads.convertidos}</div>
+              <div className="text-xs text-primary mt-1">Ver convertidos →</div>
             </div>
-
           </button>
 
 
-          {/* PERDIDOS */}
-
           <button
             type="button"
             className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-            onClick={() =>
-              navegar("/crm/leads?status=Perdido")
-            }
+            onClick={() => navegar("/crm/leads?status=Perdido")}
           >
-
             <div className="card-body">
-
-              <div className="text-sm text-base-content/60">
-                Perdidos
-              </div>
-
-              <div className="text-3xl font-bold">
-                {dashboard.leads.perdidos}
-              </div>
-
-              <div className="text-xs text-primary mt-1">
-                Ver perdidos →
-              </div>
-
+              <div className="text-sm text-base-content/60">Perdidos</div>
+              <div className="text-3xl font-bold">{dashboard.leads.perdidos}</div>
+              <div className="text-xs text-primary mt-1">Ver perdidos →</div>
             </div>
-
           </button>
 
         </div>
@@ -1552,138 +1110,68 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {/* CLIENTES ATIVOS */}
-
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/clientes?status=Ativo")
-          }
+          onClick={() => navegar("/crm/clientes?status=Ativo")}
         >
-
           <div className="card-body">
-
-            <div className="text-sm text-base-content/60">
-              Clientes Ativos
-            </div>
-
-            <div className="text-3xl font-bold">
-              {dashboard.clientes.ativos}
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver clientes ativos →
-            </div>
-
+            <div className="text-sm text-base-content/60">Clientes Ativos</div>
+            <div className="text-3xl font-bold">{dashboard.clientes.ativos}</div>
+            <div className="text-xs text-primary mt-1">Ver clientes →</div>
           </div>
-
         </button>
 
 
-        {/* PROJETOS */}
-
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/projetos?status=Em%20andamento")
-          }
+          onClick={() => navegar("/crm/projetos?status=Em%20andamento")}
         >
-
           <div className="card-body">
-
-            <div className="text-sm text-base-content/60">
-              Projetos em Andamento
-            </div>
-
-            <div className="text-3xl font-bold">
-              {dashboard.projetos.andamento}
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver projetos →
-            </div>
-
+            <div className="text-sm text-base-content/60">Projetos em Andamento</div>
+            <div className="text-3xl font-bold">{dashboard.projetos.andamento}</div>
+            <div className="text-xs text-primary mt-1">Ver projetos →</div>
           </div>
-
         </button>
 
 
-        {/* PAGAMENTOS */}
-
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/pagamentos?status=Pendente")
-          }
+          onClick={() => navegar("/crm/pagamentos?status=Pendente%2CAtrasado")}
         >
-
           <div className="card-body">
-
+            <div className="text-sm text-base-content/60">Pagamentos Pendentes</div>
+            <div className="text-3xl font-bold">{dashboard.pagamentos.pendentes}</div>
             <div className="text-sm text-base-content/60">
-              Pagamentos Pendentes
+              {formatarMoeda(dashboard.pagamentos.valor_pendente)}
             </div>
-
-            <div className="text-3xl font-bold">
-              {dashboard.pagamentos.pendentes}
-            </div>
-
-            <div className="text-sm text-base-content/60">
-              {formatarMoeda(
-                dashboard.pagamentos.valor_pendente
-              )}
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver pagamentos →
-            </div>
-
+            <div className="text-xs text-primary mt-1">Ver pagamentos →</div>
           </div>
-
         </button>
 
 
-        {/* RECEITA */}
-
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/pagamentos?status=Pago")
-          }
+          onClick={() => navegar("/crm/pagamentos")}
         >
-
           <div className="card-body">
-
-            <div className="text-sm text-base-content/60">
-              Receita
-            </div>
-
+            <div className="text-sm text-base-content/60">Receita</div>
             <div className="text-2xl font-bold">
-              {formatarMoeda(
-                dashboard.pagamentos.receita
-              )}
+              {formatarMoeda(dashboard.pagamentos.receita)}
             </div>
-
-            <div className="text-sm text-base-content/60">
-              Pagamentos recebidos
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver pagamentos →
-            </div>
-
+            <div className="text-sm text-base-content/60">Pagamentos recebidos</div>
+            <div className="text-xs text-primary mt-1">Ver pagamentos →</div>
           </div>
-
         </button>
 
       </div>
 
 
       {/* =====================================================
-          PLANOS RECORRENTES
+          PLANOS + MRR
       ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1691,67 +1179,28 @@ export default function DashboardPage() {
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/planos?status=Ativo")
-          }
+          onClick={() => navegar("/crm/planos?status=Ativo")}
         >
-
           <div className="card-body">
-
-            <div className="text-sm text-base-content/60">
-              Planos Recorrentes
-            </div>
-
-            <div className="text-3xl font-bold">
-              {dashboard.planos.ativos}
-            </div>
-
-            <div className="text-sm text-base-content/60">
-              planos ativos
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver planos →
-            </div>
-
+            <div className="text-sm text-base-content/60">Planos Recorrentes</div>
+            <div className="text-3xl font-bold">{dashboard.planos.ativos}</div>
+            <div className="text-sm text-base-content/60">planos ativos</div>
+            <div className="text-xs text-primary mt-1">Ver planos →</div>
           </div>
-
         </button>
 
-      {/* =====================================================
-          RECEITA RECORRENTE MENSAL MRR
-      ====================================================== */}
 
         <button
           type="button"
           className="card bg-base-100 shadow-sm border border-base-300 text-left hover:shadow-md transition-shadow"
-          onClick={() =>
-            navegar("/crm/planos?status=Ativo")
-          }
+          onClick={() => navegar("/crm/planos?status=Ativo")}
         >
-
           <div className="card-body">
-
-            <div className="text-sm text-base-content/60">
-              Receita Recorrente Mensal
-            </div>
-
-            <div className="text-2xl font-bold">
-              {formatarMoeda(
-                dashboard.planos.mrr
-              )}
-            </div>
-
-            <div className="text-sm text-base-content/60">
-              MRR
-            </div>
-
-            <div className="text-xs text-primary mt-1">
-              Ver planos →
-            </div>
-
+            <div className="text-sm text-base-content/60">Receita Recorrente Mensal</div>
+            <div className="text-2xl font-bold">{formatarMoeda(dashboard.planos.mrr)}</div>
+            <div className="text-sm text-base-content/60">MRR</div>
+            <div className="text-xs text-primary mt-1">Ver planos →</div>
           </div>
-
         </button>
 
       </div>
@@ -1766,90 +1215,61 @@ export default function DashboardPage() {
         <div className="card-body">
 
           <div>
-
-            <h2 className="card-title">
-              Funil Comercial
-            </h2>
+            <h2 className="card-title">Funil Comercial</h2>
 
             <p className="text-sm text-base-content/60">
               Clique em uma etapa para visualizar os leads daquela etapa.
             </p>
-
           </div>
 
 
           <div className="space-y-4 mt-5">
 
-            {dadosFunil.map(
-              (item, index) => {
+            {dadosFunil.map((item, index) => {
 
-                const maior =
-                  Math.max(
-                    ...dadosFunil.map(
-                      etapaItem =>
-                        etapaItem.quantidade
-                    ),
-                    1
-                  );
-
-                const largura =
-                  item.quantidade === 0
-                    ? 0
-                    : Math.max(
-                        (
-                          item.quantidade /
-                          maior
-                        ) * 100,
-                        5
-                      );
-
-                return (
-
-                  <button
-                    type="button"
-                    key={item.chave}
-                    className="w-full text-left group"
-                    onClick={() =>
-                      navegar(
-                        `/crm/leads?etapa=${encodeURIComponent(
-                          item.etapa
-                        )}`
-                      )
-                    }
-                  >
-
-                    <div className="flex items-center justify-between mb-1">
-
-                      <span className="text-sm font-medium group-hover:text-primary transition-colors">
-
-                        {index + 1}. {item.etapa}
-
-                      </span>
-
-                      <span className="text-sm font-bold">
-                        {item.quantidade}
-                      </span>
-
-                    </div>
-
-
-                    <div className="w-full bg-base-200 rounded-full h-3 overflow-hidden">
-
-                      <div
-                        className="bg-primary h-3 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${largura}%`,
-                        }}
-                      />
-
-                    </div>
-
-                  </button>
-
+              const maior =
+                Math.max(
+                  ...dadosFunil.map(etapaItem => etapaItem.quantidade),
+                  1
                 );
 
-              }
-            )}
+              const largura =
+                item.quantidade === 0
+                  ? 0
+                  : Math.max((item.quantidade / maior) * 100, 5);
+
+              return (
+
+                <button
+                  type="button"
+                  key={item.chave}
+                  className="w-full text-left group"
+                  onClick={() =>
+                    navegar(`/crm/leads?etapa=${encodeURIComponent(item.etapa)}`)
+                  }
+                >
+
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                      {index + 1}. {item.etapa}
+                    </span>
+
+                    <span className="text-sm font-bold">{item.quantidade}</span>
+                  </div>
+
+
+                  <div className="w-full bg-base-200 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-primary h-3 rounded-full transition-all duration-500"
+                      style={{ width: `${largura}%` }}
+                    />
+                  </div>
+
+                </button>
+
+              );
+
+            })}
 
           </div>
 
@@ -1867,12 +1287,9 @@ export default function DashboardPage() {
         {/* EVOLUÇÃO */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Evolução dos Leads
-            </h2>
+            <h2 className="card-title">Evolução dos Leads</h2>
 
             <p className="text-sm text-base-content/60">
               Entradas, conversões e perdas no período filtrado.
@@ -1882,38 +1299,20 @@ export default function DashboardPage() {
             <div className="h-[320px] mt-4">
 
               {dadosEvolucao.length === 0 ? (
-
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Não há dados suficientes para exibir este gráfico.
                 </div>
-
               ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dadosEvolucao}>
 
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-                  <LineChart
-                    data={dadosEvolucao}
-                  >
+                    <XAxis dataKey="dataFormatada" fontSize={12} />
 
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      opacity={0.2}
-                    />
+                    <YAxis allowDecimals={false} fontSize={12} />
 
-                    <XAxis
-                      dataKey="dataFormatada"
-                      fontSize={12}
-                    />
-
-                    <YAxis
-                      allowDecimals={false}
-                      fontSize={12}
-                    />
-
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
 
                     <Legend />
 
@@ -1924,6 +1323,8 @@ export default function DashboardPage() {
                       stroke="#570df8"
                       strokeWidth={3}
                       dot={false}
+                      activeDot={{ r: 6 }}
+                      animationDuration={400}
                     />
 
                     <Line
@@ -1932,6 +1333,8 @@ export default function DashboardPage() {
                       name="Convertidos"
                       stroke="#36d399"
                       strokeWidth={2}
+                      activeDot={{ r: 5 }}
+                      animationDuration={400}
                     />
 
                     <Line
@@ -1940,51 +1343,41 @@ export default function DashboardPage() {
                       name="Perdidos"
                       stroke="#f87272"
                       strokeWidth={2}
+                      activeDot={{ r: 5 }}
+                      animationDuration={400}
                     />
 
                   </LineChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
           </div>
-
         </div>
 
 
         {/* ORIGENS */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Leads por Origem
-            </h2>
+            <h2 className="card-title">Leads por Origem</h2>
 
             <p className="text-sm text-base-content/60">
-              De onde estão vindo os seus leads.
+              De onde estão vindo os seus leads. Clique numa fatia ou na
+              legenda para destacar.
             </p>
 
 
             <div className="h-[320px] mt-4">
 
               {dashboard.graficos.leads_por_origem.length === 0 ? (
-
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Não há dados para exibir.
                 </div>
-
               ) : (
-
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
-
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
 
                     <Pie
@@ -1995,40 +1388,48 @@ export default function DashboardPage() {
                       cy="50%"
                       outerRadius={100}
                       label
+                      style={{ cursor: "pointer" }}
+                      animationDuration={400}
+                      onClick={(entry: any) =>
+                        setOrigemSelecionada(atual =>
+                          atual === entry.origem ? null : entry.origem
+                        )
+                      }
                     >
 
-                      {dashboard.graficos.leads_por_origem.map(
-                        (_, index) => (
-
-                          <Cell
-                            key={`origem-${index}`}
-                            fill={
-                              CORES_GRAFICOS[
-                                index %
-                                CORES_GRAFICOS.length
-                              ]
-                            }
-                          />
-
-                        )
-                      )}
+                      {dashboard.graficos.leads_por_origem.map((item, index) => (
+                        <Cell
+                          key={`origem-${index}`}
+                          fill={corPorIndice(index)}
+                          opacity={
+                            !origemSelecionada || origemSelecionada === item.origem
+                              ? 1
+                              : 0.35
+                          }
+                          style={{ transition: "opacity 200ms ease" }}
+                        />
+                      ))}
 
                     </Pie>
 
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
 
-                    <Legend />
+                    <Legend
+                      onClick={(entry: any) =>
+                        setOrigemSelecionada(atual =>
+                          atual === entry.value ? null : entry.value
+                        )
+                      }
+                      wrapperStyle={{ cursor: "pointer" }}
+                    />
 
                   </PieChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
           </div>
-
         </div>
 
       </div>
@@ -2043,158 +1444,149 @@ export default function DashboardPage() {
         {/* RESPONSÁVEL */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Leads por Responsável
-            </h2>
+            <h2 className="card-title">Leads por Responsável</h2>
 
             <p className="text-sm text-base-content/60">
               Distribuição dos leads entre os responsáveis.
             </p>
 
-
             <div className="h-[340px] mt-4">
 
               {dashboard.graficos.leads_por_responsavel.length === 0 ? (
-
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Não há dados para exibir.
                 </div>
-
               ) : (
-
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
-
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={
-                      dashboard.graficos.leads_por_responsavel
-                    }
+                    data={dashboard.graficos.leads_por_responsavel}
                     layout="vertical"
-                    margin={{
-                      left: 20,
-                      right: 20,
-                    }}
+                    margin={{ left: 20, right: 20 }}
                   >
 
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      opacity={0.2}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-                    <XAxis
-                      type="number"
-                      allowDecimals={false}
-                    />
+                    <XAxis type="number" allowDecimals={false} />
 
-                    <YAxis
-                      type="category"
-                      dataKey="responsavel"
-                      width={100}
-                    />
+                    <YAxis type="category" dataKey="responsavel" width={100} />
 
-                    <Tooltip />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "rgba(79,70,229,0.08)" }}
+                    />
 
                     <Bar
                       dataKey="quantidade"
                       name="Leads"
-                      fill="#570df8"
                       radius={[0, 5, 5, 0]}
-                    />
+                      style={{ cursor: "pointer" }}
+                      animationDuration={400}
+                      onClick={(entry: any) =>
+                        navigateWithFilter("/crm/leads", {
+                          responsavel: entry.responsavel,
+                        })
+                      }
+                    >
+                      {dashboard.graficos.leads_por_responsavel.map(
+                        (item, index) => (
+                          <Cell
+                            key={`responsavel-${item.responsavel}-${index}`}
+                            fill={
+                              CORES_RESPONSAVEIS[
+                                index % CORES_RESPONSAVEIS.length
+                              ]
+                            }
+                          />
+                        )
+                      )}
+                    </Bar>
 
                   </BarChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
           </div>
-
         </div>
 
 
         {/* RAMOS */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Leads por Ramo
-            </h2>
+            <h2 className="card-title">Leads por Ramo</h2>
 
             <p className="text-sm text-base-content/60">
-              Segmentos que mais aparecem na prospecção.
+              Top 10 segmentos com maior quantidade de leads. Clique numa
+              barra para ver os leads daquele ramo.
             </p>
 
+            <div className="h-[400px] mt-4">
 
-            <div className="h-[340px] mt-4">
-
-              {dashboard.graficos.leads_por_ramo.length === 0 ? (
-
+              {leadsPorRamoGrafico.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Não há dados para exibir.
                 </div>
-
               ) : (
-
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
-
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={
-                      dashboard.graficos.leads_por_ramo
-                    }
-                    margin={{
-                      left: 10,
-                      right: 10,
-                    }}
+                    data={leadsPorRamoGrafico}
+                    layout="vertical"
+                    margin={{ left: 20, right: 30, top: 10, bottom: 10 }}
                   >
 
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      opacity={0.2}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-                    <XAxis
-                      dataKey="ramo"
-                      angle={-25}
-                      textAnchor="end"
-                      height={80}
-                      interval={0}
-                    />
+                    <XAxis type="number" allowDecimals={false} />
 
                     <YAxis
-                      allowDecimals={false}
+                      type="category"
+                      dataKey="ramo"
+                      width={150}
+                      tick={{ fontSize: 12 }}
                     />
 
-                    <Tooltip />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "rgba(87,13,248,0.08)" }}
+                    />
 
                     <Bar
                       dataKey="quantidade"
                       name="Leads"
-                      fill="#37cdbe"
-                      radius={[5, 5, 0, 0]}
-                    />
+                      radius={[0, 5, 5, 0]}
+                      style={{ cursor: "pointer" }}
+                      animationDuration={400}
+                      onClick={(entry: any) =>
+                        navigateWithFilter("/crm/leads", { ramo: entry.ramo })
+                      }
+                    >
+                      {leadsPorRamoGrafico.map((item, index) => (
+                        <Cell
+                          key={`ramo-${item.ramo}-${index}`}
+                          fill={corPorIndice(index)}
+                        />
+                      ))}
+                    </Bar>
 
                   </BarChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
-          </div>
+            {dashboard.graficos.leads_por_ramo.length > 10 && (
+              <p className="text-xs text-base-content/50 mt-2 text-center">
+                Exibindo os 10 principais ramos entre{" "}
+                {dashboard.graficos.leads_por_ramo.length} com dados.
+              </p>
+            )}
 
+          </div>
         </div>
 
       </div>
@@ -2209,158 +1601,146 @@ export default function DashboardPage() {
         {/* MOTIVOS DE PERDA */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Motivos de Perda
-            </h2>
+            <h2 className="card-title">Motivos de Perda</h2>
 
             <p className="text-sm text-base-content/60">
-              Principais motivos registrados para leads perdidos.
+              Principais motivos registrados para leads perdidos. Clique
+              numa barra para ver os leads perdidos por aquele motivo.
             </p>
 
 
             <div className="h-[320px] mt-4">
 
               {dashboard.graficos.motivos_de_perda.length === 0 ? (
-
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Nenhum lead perdido no filtro atual.
                 </div>
-
               ) : (
-
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
-
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={
-                      dashboard.graficos.motivos_de_perda
-                    }
+                    data={dashboard.graficos.motivos_de_perda}
                     layout="vertical"
-                    margin={{
-                      left: 30,
-                      right: 20,
-                    }}
+                    margin={{ left: 30, right: 20 }}
                   >
 
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      opacity={0.2}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-                    <XAxis
-                      type="number"
-                      allowDecimals={false}
-                    />
+                    <XAxis type="number" allowDecimals={false} />
 
-                    <YAxis
-                      type="category"
-                      dataKey="motivo"
-                      width={130}
-                    />
+                    <YAxis type="category" dataKey="motivo" width={130} />
 
-                    <Tooltip />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "rgba(239,68,68,0.08)" }}
+                    />
 
                     <Bar
                       dataKey="quantidade"
                       name="Perdas"
-                      fill="#f87272"
                       radius={[0, 5, 5, 0]}
-                    />
+                      style={{ cursor: "pointer" }}
+                      animationDuration={400}
+                      onClick={(entry: any) =>
+                        navigateWithFilter("/crm/leads", {
+                          status: "Perdido",
+                          motivo_perda: entry.motivo,
+                        })
+                      }
+                    >
+                      {dashboard.graficos.motivos_de_perda.map((item, index) => (
+                        <Cell
+                          key={`motivo-perda-${item.motivo}-${index}`}
+                          fill={
+                            CORES_MOTIVOS_PERDA[item.motivo] ?? corPorIndice(index)
+                          }
+                        />
+                      ))}
+                    </Bar>
 
                   </BarChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
           </div>
-
         </div>
 
 
         {/* PAGAMENTOS */}
 
         <div className="card bg-base-100 shadow-sm border border-base-300">
-
           <div className="card-body">
 
-            <h2 className="card-title">
-              Pagamentos por Status
-            </h2>
+            <h2 className="card-title">Pagamentos por Status</h2>
 
             <p className="text-sm text-base-content/60">
-              Distribuição dos pagamentos cadastrados.
+              Distribuição dos pagamentos cadastrados. Clique numa fatia
+              ou na legenda para ver os pagamentos daquele status.
             </p>
 
 
             <div className="h-[320px] mt-4">
 
               {dashboard.graficos.pagamentos_por_status.length === 0 ? (
-
                 <div className="h-full flex items-center justify-center text-base-content/50">
                   Não há pagamentos para exibir.
                 </div>
-
               ) : (
-
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                >
-
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
 
                     <Pie
-                      data={
-                        dashboard.graficos.pagamentos_por_status
-                      }
+                      data={dashboard.graficos.pagamentos_por_status}
                       dataKey="quantidade"
                       nameKey="status"
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
                       label
+                      style={{ cursor: "pointer" }}
+                      animationDuration={400}
+                      onClick={(entry: any) =>
+                        navigateWithFilter("/crm/pagamentos", {
+                          status: entry.status,
+                        })
+                      }
                     >
 
                       {dashboard.graficos.pagamentos_por_status.map(
-                        (_, index) => (
-
+                        (item, index) => (
                           <Cell
                             key={`pagamento-${index}`}
                             fill={
-                              CORES_GRAFICOS[
-                                index %
-                                CORES_GRAFICOS.length
-                              ]
+                              CORES_STATUS_PAGAMENTO[item.status] ??
+                              corPorIndice(index)
                             }
                           />
-
                         )
                       )}
 
                     </Pie>
 
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
 
-                    <Legend />
+                    <Legend
+                      onClick={(entry: any) =>
+                        navigateWithFilter("/crm/pagamentos", {
+                          status: entry.value,
+                        })
+                      }
+                      wrapperStyle={{ cursor: "pointer" }}
+                    />
 
                   </PieChart>
-
                 </ResponsiveContainer>
-
               )}
 
             </div>
 
           </div>
-
         </div>
 
       </div>
@@ -2374,62 +1754,62 @@ export default function DashboardPage() {
 
         <div className="card-body">
 
-          <h2 className="card-title">
-            Projetos por Status
-          </h2>
+          <h2 className="card-title">Projetos por Status</h2>
 
           <p className="text-sm text-base-content/60">
-            Distribuição dos projetos cadastrados.
+            Distribuição dos projetos cadastrados. Clique numa barra para
+            ver os projetos daquele status.
           </p>
 
 
           <div className="h-[320px] mt-4">
 
             {dashboard.graficos.projetos_por_status.length === 0 ? (
-
               <div className="h-full flex items-center justify-center text-base-content/50">
                 Não há projetos para exibir.
               </div>
-
             ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashboard.graficos.projetos_por_status}>
 
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
-              >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
 
-                <BarChart
-                  data={
-                    dashboard.graficos.projetos_por_status
-                  }
-                >
+                  <XAxis dataKey="status" />
 
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    opacity={0.2}
+                  <YAxis allowDecimals={false} />
+
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    cursor={{ fill: "rgba(58,191,248,0.1)" }}
                   />
-
-                  <XAxis
-                    dataKey="status"
-                  />
-
-                  <YAxis
-                    allowDecimals={false}
-                  />
-
-                  <Tooltip />
 
                   <Bar
                     dataKey="quantidade"
                     name="Projetos"
-                    fill="#3abff8"
                     radius={[5, 5, 0, 0]}
-                  />
+                    style={{ cursor: "pointer" }}
+                    animationDuration={400}
+                    onClick={(entry: any) =>
+                      navigateWithFilter("/crm/projetos", {
+                        status: entry.status,
+                      })
+                    }
+                  >
+                    {dashboard.graficos.projetos_por_status.map(
+                      (item, index) => (
+                        <Cell
+                          key={`projeto-${item.status}-${index}`}
+                          fill={
+                            CORES_STATUS_PROJETO[item.status] ??
+                            corPorIndice(index)
+                          }
+                        />
+                      )
+                    )}
+                  </Bar>
 
                 </BarChart>
-
               </ResponsiveContainer>
-
             )}
 
           </div>
@@ -2448,147 +1828,119 @@ export default function DashboardPage() {
         <div className="card-body">
 
           <div>
-
-            <h2 className="card-title">
-              Próximas Ações
-            </h2>
+            <h2 className="card-title">Próximas Ações</h2>
 
             <p className="text-sm text-base-content/60">
               Próximos contatos e atividades comerciais.
             </p>
-
           </div>
 
 
           {dashboard.proximas_acoes.length === 0 ? (
 
             <div className="flex items-center justify-center py-12">
-
               <div className="text-center">
+                <div className="text-4xl mb-3">✓</div>
 
-                <div className="text-4xl mb-3">
-                  ✓
-                </div>
-
-                <p className="font-medium">
-                  Nenhuma próxima ação
-                </p>
+                <p className="font-medium">Nenhuma próxima ação</p>
 
                 <p className="text-sm text-base-content/60 mt-1">
                   Não existem ações agendadas para os filtros atuais.
                 </p>
-
               </div>
-
             </div>
 
           ) : (
 
             <div className="overflow-x-auto mt-4">
-
               <table className="table">
-
                 <thead>
-
                   <tr>
-
                     <th>Data</th>
                     <th>Empresa</th>
                     <th>Ação</th>
                     <th>Responsável</th>
                     <th>Prioridade</th>
                     <th>Status</th>
-
+                    <th>Ações</th>
                   </tr>
-
                 </thead>
 
 
                 <tbody>
 
-                  {dashboard.proximas_acoes.map(
-                    (item, index) => (
+                  {dashboard.proximas_acoes.map((item, index) => (
 
-                      <tr
-                        key={
-                          `${item.origem}-${item.id}-${index}`
-                        }
-                      >
+                    <tr key={`${item.origem}-${item.id}-${index}`}>
 
-                        <td className="whitespace-nowrap">
+                      <td className="whitespace-nowrap">
+                        <div className="font-medium">
+                          {formatarData(item.data)}
+                        </div>
 
-                          <div className="font-medium">
-                            {formatarData(item.data)}
+                        {item.horario && (
+                          <div className="text-xs text-base-content/60">
+                            {item.horario}
                           </div>
-
-                          {item.horario && (
-
-                            <div className="text-xs text-base-content/60">
-                              {item.horario}
-                            </div>
-
-                          )}
-
-                        </td>
+                        )}
+                      </td>
 
 
-                        <td>
-
-                          <div className="font-medium">
-                            {item.empresa || "-"}
-                          </div>
-
-                        </td>
+                      <td>
+                        <div className="font-medium">
+                          {item.empresa || "-"}
+                        </div>
+                      </td>
 
 
-                        <td>
-                          {item.acao || "-"}
-                        </td>
+                      <td>{item.acao || "-"}</td>
 
+                      <td>{item.responsavel || "-"}</td>
 
-                        <td>
-                          {item.responsavel || "-"}
-                        </td>
+                      <td>
+                        {item.prioridade ? (
+                          <span className="badge badge-outline">
+                            {item.prioridade}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
 
+                      <td>
+                        {item.status ? (
+                          <span className="badge badge-outline">
+                            {item.status}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
 
-                        <td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-warning btn-xs"
+                          onClick={() =>
+                            navigateWithFilter(
+                              item.origem === "cliente"
+                                ? "/crm/clientes"
+                                : "/crm/leads",
+                              { editar: String(item.id) }
+                            )
+                          }
+                        >
+                          Editar
+                        </button>
+                      </td>
 
-                          {item.prioridade ? (
+                    </tr>
 
-                            <span className="badge badge-outline">
-                              {item.prioridade}
-                            </span>
-
-                          ) : (
-                            "-"
-                          )}
-
-                        </td>
-
-
-                        <td>
-
-                          {item.status ? (
-
-                            <span className="badge badge-outline">
-                              {item.status}
-                            </span>
-
-                          ) : (
-                            "-"
-                          )}
-
-                        </td>
-
-                      </tr>
-
-                    )
-                  )}
+                  ))}
 
                 </tbody>
 
               </table>
-
             </div>
 
           )}
@@ -2607,118 +1959,68 @@ export default function DashboardPage() {
         <div className="card-body">
 
           <div>
-
-            <h2 className="card-title">
-              Indicadores Comerciais
-            </h2>
+            <h2 className="card-title">Indicadores Comerciais</h2>
 
             <p className="text-sm text-base-content/60">
               Indicadores calculados considerando os filtros atuais.
             </p>
-
           </div>
 
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
 
-            {/* CONVERSÃO */}
-
             <div className="bg-base-200 rounded-xl p-5">
-
-              <div className="text-sm text-base-content/60">
-                Taxa de Conversão
-              </div>
-
+              <div className="text-sm text-base-content/60">Taxa de Conversão</div>
               <div className="text-3xl font-bold mt-2">
                 {dashboard.indicadores.taxa_conversao}%
               </div>
-
               <div className="text-xs text-base-content/60 mt-1">
                 Convertidos ÷ total de leads
               </div>
-
             </div>
 
 
-            {/* PERDA */}
-
             <div className="bg-base-200 rounded-xl p-5">
-
-              <div className="text-sm text-base-content/60">
-                Taxa de Perda
-              </div>
-
+              <div className="text-sm text-base-content/60">Taxa de Perda</div>
               <div className="text-3xl font-bold mt-2">
                 {dashboard.indicadores.taxa_perda}%
               </div>
-
               <div className="text-xs text-base-content/60 mt-1">
                 Perdidos ÷ total de leads
               </div>
-
             </div>
 
 
-            {/* VALOR POTENCIAL */}
-
             <div className="bg-base-200 rounded-xl p-5">
-
-              <div className="text-sm text-base-content/60">
-                Valor Potencial
-              </div>
-
+              <div className="text-sm text-base-content/60">Valor Potencial</div>
               <div className="text-2xl font-bold mt-2">
-                {formatarMoeda(
-                  dashboard.indicadores.valor_potencial
-                )}
+                {formatarMoeda(dashboard.indicadores.valor_potencial)}
               </div>
-
               <div className="text-xs text-base-content/60 mt-1">
                 Potencial dos leads filtrados
               </div>
-
             </div>
 
 
-            {/* TICKET MÉDIO */}
-
             <div className="bg-base-200 rounded-xl p-5">
-
-              <div className="text-sm text-base-content/60">
-                Ticket Potencial Médio
-              </div>
-
+              <div className="text-sm text-base-content/60">Ticket Potencial Médio</div>
               <div className="text-2xl font-bold mt-2">
-                {formatarMoeda(
-                  dashboard.indicadores.ticket_potencial_medio
-                )}
+                {formatarMoeda(dashboard.indicadores.ticket_potencial_medio)}
               </div>
-
               <div className="text-xs text-base-content/60 mt-1">
                 Média dos leads com valor
               </div>
-
             </div>
 
 
-            {/* MRR */}
-
             <div className="bg-base-200 rounded-xl p-5">
-
-              <div className="text-sm text-base-content/60">
-                MRR
-              </div>
-
+              <div className="text-sm text-base-content/60">MRR</div>
               <div className="text-2xl font-bold mt-2">
-                {formatarMoeda(
-                  dashboard.planos.mrr
-                )}
+                {formatarMoeda(dashboard.planos.mrr)}
               </div>
-
               <div className="text-xs text-base-content/60 mt-1">
                 Receita recorrente mensal
               </div>
-
             </div>
 
           </div>
@@ -2733,9 +2035,7 @@ export default function DashboardPage() {
       ====================================================== */}
 
       <div className="text-center text-xs text-base-content/50 pb-4">
-
         Dashboard atualizado conforme os filtros selecionados.
-
       </div>
 
     </div>
