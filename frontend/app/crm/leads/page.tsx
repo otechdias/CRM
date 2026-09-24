@@ -179,7 +179,7 @@ const estadoInicial: Partial<Lead> = {
 
   tipo_primeiro_contato: "",
   origem_lead: "",
-  responsavel: "",
+  responsavel: "Não informado",
 
   status_lead: "Novo",
   etapa_comercial: "Novo Lead",
