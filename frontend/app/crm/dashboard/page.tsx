@@ -185,10 +185,6 @@ export default function DashboardPage() {
   const [atualizando, setAtualizando] =
     useState(false);
 
-  // Legenda clicável do gráfico de Origem
-  const [origemSelecionada, setOrigemSelecionada] =
-    useState<string | null>(null);
-
   // Filtros
   const [periodo, setPeriodo] =
     useState("todos");
@@ -1366,7 +1362,7 @@ export default function DashboardPage() {
 
             <p className="text-sm text-base-content/60">
               De onde estão vindo os seus leads. Clique numa fatia ou na
-              legenda para destacar.
+              legenda para ver os leads daquela origem.
             </p>
 
 
@@ -1391,9 +1387,9 @@ export default function DashboardPage() {
                       style={{ cursor: "pointer" }}
                       animationDuration={400}
                       onClick={(entry: any) =>
-                        setOrigemSelecionada(atual =>
-                          atual === entry.origem ? null : entry.origem
-                        )
+                        navigateWithFilter("/crm/leads", {
+                          origem: entry.origem,
+                        })
                       }
                     >
 
@@ -1401,11 +1397,6 @@ export default function DashboardPage() {
                         <Cell
                           key={`origem-${index}`}
                           fill={corPorIndice(index)}
-                          opacity={
-                            !origemSelecionada || origemSelecionada === item.origem
-                              ? 1
-                              : 0.35
-                          }
                           style={{ transition: "opacity 200ms ease" }}
                         />
                       ))}
@@ -1416,9 +1407,9 @@ export default function DashboardPage() {
 
                     <Legend
                       onClick={(entry: any) =>
-                        setOrigemSelecionada(atual =>
-                          atual === entry.value ? null : entry.value
-                        )
+                        navigateWithFilter("/crm/leads", {
+                          origem: entry.value,
+                        })
                       }
                       wrapperStyle={{ cursor: "pointer" }}
                     />
@@ -1495,7 +1486,7 @@ export default function DashboardPage() {
                             key={`responsavel-${item.responsavel}-${index}`}
                             fill={
                               CORES_RESPONSAVEIS[
-                                index % CORES_RESPONSAVEIS.length
+                              index % CORES_RESPONSAVEIS.length
                               ]
                             }
                           />

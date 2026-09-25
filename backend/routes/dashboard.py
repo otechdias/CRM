@@ -220,11 +220,18 @@ def dashboard():
     # --------------------------------------------------------
 
     if origem:
-        query_leads = query_leads.filter(
-            func.lower(Lead.origem_lead)
-            == normalizar_texto(origem)
-        )
-
+        if normalizar_texto(origem) == "não informado":
+            query_leads = query_leads.filter(
+                or_(
+                    Lead.origem_lead.is_(None),
+                    func.trim(Lead.origem_lead) == ""
+                )
+            )
+        else:
+            query_leads = query_leads.filter(
+                func.lower(Lead.origem_lead)
+                == normalizar_texto(origem)
+            )
     # --------------------------------------------------------
     # RAMO
     # --------------------------------------------------------

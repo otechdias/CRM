@@ -234,9 +234,10 @@ export default function LeadsPage() {
   const [filtroDataAte, setFiltroDataAte] = useState("");
   const [filtroPrioridade, setFiltroPrioridade] = useState("");
 
-  // NOVOS FILTROS — Ramo e Motivo de Perda (vindos do Dashboard)
+  // FILTROS — Ramo, Motivo de Perda e Origem (vindos do Dashboard)
   const [filtroRamo, setFiltroRamo] = useState("");
   const [filtroMotivoPerda, setFiltroMotivoPerda] = useState("");
+  const [filtroOrigem, setFiltroOrigem] = useState("");
 
   // Abertura automática do modal de edição via ?editar=ID
   const [leadIdParaAbrir, setLeadIdParaAbrir] = useState<number | null>(null);
@@ -357,7 +358,7 @@ export default function LeadsPage() {
   /* =======================================================
      APLICAR FILTROS VINDOS DA URL
      (ex: /crm/leads?status=Novo, ?ramo=..., ?motivo_perda=...,
-     ?editar=ID vindo do botão "Editar" do Dashboard)
+     ?origem=..., ?editar=ID vindo do botão "Editar" do Dashboard)
   ======================================================= */
 
   useEffect(() => {
@@ -368,6 +369,7 @@ export default function LeadsPage() {
     const responsavelUrl = params.get("responsavel");
     const ramoUrl = params.get("ramo");
     const motivoPerdaUrl = params.get("motivo_perda");
+    const origemUrl = params.get("origem");
     const editarUrl = params.get("editar");
 
     if (statusUrl) setFiltroStatus(statusUrl);
@@ -375,6 +377,7 @@ export default function LeadsPage() {
     if (responsavelUrl) setFiltroResponsavel(responsavelUrl);
     if (ramoUrl) setFiltroRamo(ramoUrl);
     if (motivoPerdaUrl) setFiltroMotivoPerda(motivoPerdaUrl);
+    if (origemUrl) setFiltroOrigem(origemUrl);
 
     if (editarUrl) {
       const idNumerico = Number(editarUrl);
@@ -489,7 +492,6 @@ export default function LeadsPage() {
       setErroCriacao("Informe o ramo personalizado.");
       return;
     }
-
 
     if (novo.status_lead === "Perdido" && !novo.motivo_perda) {
       setErroCriacao("Informe o motivo da perda.");
@@ -676,6 +678,21 @@ export default function LeadsPage() {
       if (filtroRamo && lead.ramo !== filtroRamo) return false;
       if (filtroMotivoPerda && lead.motivo_perda !== filtroMotivoPerda) return false;
 
+      // Origem de leads
+      if (filtroOrigem) {
+        const origemLead = (lead.origem_lead ?? "").trim();
+
+        if (filtroOrigem === "Não informado") {
+          if (origemLead !== "" && origemLead !== "-") {
+            return false;
+          }
+        } else {
+          if (origemLead !== filtroOrigem) {
+            return false;
+          }
+        }
+      }
+
       const data = (
         lead.data_proxima_acao ||
         lead.data_ultimo_contato ||
@@ -720,6 +737,7 @@ export default function LeadsPage() {
     filtroPrioridade,
     filtroRamo,
     filtroMotivoPerda,
+    filtroOrigem,
   ]);
 
   const temFiltro = Boolean(
@@ -731,7 +749,8 @@ export default function LeadsPage() {
       filtroDataAte ||
       filtroPrioridade ||
       filtroRamo ||
-      filtroMotivoPerda
+      filtroMotivoPerda ||
+      filtroOrigem
   );
 
   const limparFiltros = () => {
@@ -744,6 +763,7 @@ export default function LeadsPage() {
     setFiltroPrioridade("");
     setFiltroRamo("");
     setFiltroMotivoPerda("");
+    setFiltroOrigem("");
   };
 
   /* =======================================================
@@ -1474,6 +1494,17 @@ export default function LeadsPage() {
 
           <select
             className="select select-bordered"
+            value={filtroOrigem}
+            onChange={(e) => setFiltroOrigem(e.target.value)}
+          >
+            <option value="">Todas as origens</option>
+            {ORIGENS_LEAD.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+
+          <select
+            className="select select-bordered"
             value={filtroMotivoPerda}
             onChange={(e) => setFiltroMotivoPerda(e.target.value)}
           >
@@ -1506,7 +1537,9 @@ export default function LeadsPage() {
           >
             Limpar filtros
           </button>
+        </div>
 
+        <div className="flex justify-end mb-4">
           <button
             className="btn btn-outline"
             onClick={carregar}
@@ -1559,6 +1592,7 @@ export default function LeadsPage() {
                   <th>Telefone</th>
                   <th>Cidade</th>
                   <th>Ramo</th>
+                  <th>Origem</th>
                   <th>Etapa</th>
                   <th>Status</th>
                   <th>Interesse</th>
@@ -1598,6 +1632,8 @@ export default function LeadsPage() {
                         ? lead.ramo_personalizado || "Outro"
                         : lead.ramo || "-"}
                     </td>
+
+                    <td>{lead.origem_lead || "-"}</td>
 
                     <td className="whitespace-nowrap">
                       <span className={getEtapaBadgeClass(lead.etapa_comercial)}>
