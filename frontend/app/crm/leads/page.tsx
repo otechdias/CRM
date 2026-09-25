@@ -86,7 +86,7 @@ const TIPOS_PRIMEIRO_CONTATO = [
 const ORIGENS_LEAD = [
   "Prospecção ativa", "Instagram", "WhatsApp", "Indicação", "Google",
   "Google Maps", "Site TechDias", "Facebook", "LinkedIn", "Evento",
-  "Networking", "Cliente antigo", "Parceiro", "Outro",
+  "Networking", "Cliente antigo", "Parceiro", "Outro","Não informado"
 ];
 
 const STATUS_LEAD = ["Novo", "Em andamento", "Perdido", "Convertido", "Ex-Cliente"];
