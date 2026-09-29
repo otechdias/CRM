@@ -9,7 +9,8 @@ COLLECTION_ROUTES = {
     "/pagamentos",
     "/planos",
     "/interacoes",
-    "/dashboard"
+    "/dashboard",
+    "/proximas-acoes",
 }
 
 

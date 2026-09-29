@@ -13,6 +13,7 @@ from backend.routes.pagamentos import pagamentos_bp
 from backend.routes.planos import planos_bp
 from backend.routes.interacoes import interacoes_bp
 from backend.routes.dashboard import dashboard_bp
+from backend.routes.proximas_acoes import proximas_acoes_bp
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ app.register_blueprint(pagamentos_bp, url_prefix="/pagamentos")
 app.register_blueprint(planos_bp, url_prefix="/planos")
 app.register_blueprint(interacoes_bp, url_prefix="/interacoes")
 app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+app.register_blueprint(proximas_acoes_bp, url_prefix="/proximas-acoes")
 
 
 @app.route("/")
