@@ -12,7 +12,7 @@ from backend.models import (
 )
 
 dashboard_bp = Blueprint("dashboard", __name__)
-
+from backend.routes.proximas_acoes import listar_proximas_acoes
 
 # ============================================================
 # AUXILIARES
@@ -826,119 +826,11 @@ def dashboard():
     # PRÓXIMAS AÇÕES
     # ========================================================
 
-    proximas_acoes = []
-
-    proximas_acoes_leads = (
-        db.session.query(Lead)
-        .filter(
-            Lead.data_proxima_acao.isnot(None)
-        )
-        .order_by(
-            Lead.data_proxima_acao.asc(),
-            Lead.horario_proxima_acao.asc()
-        )
-        .limit(20)
-        .all()
+    proximas_acoes = listar_proximas_acoes(
+        busca=busca,
+        responsavel=responsavel,
+        limite=5,
     )
-
-    for lead in proximas_acoes_leads:
-
-        if busca:
-            termo_busca = normalizar_texto(busca)
-
-            if (
-                termo_busca
-                not in normalizar_texto(
-                    lead.nome_empresa
-                )
-                and termo_busca
-                not in normalizar_texto(
-                    lead.nome_contato
-                )
-            ):
-                continue
-
-        proximas_acoes.append({
-            "origem": "lead",
-            "id": lead.id,
-            "empresa": lead.nome_empresa,
-            "responsavel": lead.responsavel,
-            "acao": lead.proxima_acao,
-            "data": (
-                lead.data_proxima_acao.isoformat()
-                if lead.data_proxima_acao
-                else None
-            ),
-            "horario": (
-                lead.horario_proxima_acao.strftime(
-                    "%H:%M"
-                )
-                if lead.horario_proxima_acao
-                else None
-            ),
-            "prioridade": lead.prioridade,
-            "status": lead.status_lead,
-        })
-
-    # --------------------------------------------------------
-    # INTERAÇÕES
-    # --------------------------------------------------------
-
-    proximas_interacoes = (
-        db.session.query(Interacao)
-        .filter(
-            Interacao.data_proxima_acao.isnot(None)
-        )
-        .order_by(
-            Interacao.data_proxima_acao.asc()
-        )
-        .limit(20)
-        .all()
-    )
-
-    for interacao in proximas_interacoes:
-
-        empresa = None
-
-        if interacao.lead:
-            empresa = interacao.lead.nome_empresa
-
-        elif interacao.cliente:
-            empresa = interacao.cliente.nome_empresa
-
-        if busca:
-            termo_busca = normalizar_texto(busca)
-
-            if (
-                termo_busca
-                not in normalizar_texto(empresa)
-            ):
-                continue
-
-        proximas_acoes.append({
-            "origem": "interacao",
-            "id": interacao.id,
-            "empresa": empresa,
-            "responsavel": interacao.responsavel,
-            "acao": interacao.proxima_acao,
-            "data": (
-                interacao.data_proxima_acao.isoformat()
-                if interacao.data_proxima_acao
-                else None
-            ),
-            "horario": None,
-            "prioridade": None,
-            "status": None,
-        })
-
-    proximas_acoes.sort(
-        key=lambda item: (
-            item["data"] or "9999-12-31",
-            item["horario"] or "23:59"
-        )
-    )
-
-    proximas_acoes = proximas_acoes[:10]
 
     # ========================================================
     # INDICADORES

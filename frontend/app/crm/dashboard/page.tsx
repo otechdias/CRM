@@ -31,7 +31,10 @@ import {
   navigateWithFilter,
 } from "../../../lib/dashboardTheme";
 
-
+import Link from "next/link";
+import ProximasAcoesTabela, {
+  ProximaAcao,
+} from "../../../components/ProximasAcoesTabela";
 // ============================================================
 // TIPOS
 // ============================================================
@@ -40,18 +43,6 @@ interface FunilItem {
   chave: string;
   etapa: string;
   quantidade: number;
-}
-
-interface ProximaAcao {
-  origem: string;
-  id: number;
-  empresa: string | null;
-  responsavel: string | null;
-  acao: string | null;
-  data: string | null;
-  horario: string | null;
-  prioridade: string | null;
-  status: string | null;
 }
 
 interface GraficoOrigem {
@@ -1814,130 +1805,41 @@ export default function DashboardPage() {
           PRÓXIMAS AÇÕES
       ====================================================== */}
 
-      <div className="card bg-base-100 shadow-sm border border-base-300">
+            {/* PRÓXIMAS AÇÕES (resumo) */}
 
+      <div className="card bg-base-100 shadow-sm border border-base-300">
         <div className="card-body">
 
-          <div>
-            <h2 className="card-title">Próximas Ações</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="card-title">Próximas Ações</h2>
+              <p className="text-sm text-base-content/60">
+                As 5 próximas atividades comerciais.
+              </p>
+            </div>
 
-            <p className="text-sm text-base-content/60">
-              Próximos contatos e atividades comerciais.
-            </p>
+            <Link href="/crm/proximas-acoes" className="btn btn-outline btn-sm">
+              Ver todas →
+            </Link>
           </div>
 
-
           {dashboard.proximas_acoes.length === 0 ? (
-
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="text-4xl mb-3">✓</div>
-
                 <p className="font-medium">Nenhuma próxima ação</p>
-
                 <p className="text-sm text-base-content/60 mt-1">
-                  Não existem ações agendadas para os filtros atuais.
+                  Não existem ações agendadas.
                 </p>
               </div>
             </div>
-
           ) : (
-
-            <div className="overflow-x-auto mt-4">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Empresa</th>
-                    <th>Ação</th>
-                    <th>Responsável</th>
-                    <th>Prioridade</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-
-
-                <tbody>
-
-                  {dashboard.proximas_acoes.map((item, index) => (
-
-                    <tr key={`${item.origem}-${item.id}-${index}`}>
-
-                      <td className="whitespace-nowrap">
-                        <div className="font-medium">
-                          {formatarData(item.data)}
-                        </div>
-
-                        {item.horario && (
-                          <div className="text-xs text-base-content/60">
-                            {item.horario}
-                          </div>
-                        )}
-                      </td>
-
-
-                      <td>
-                        <div className="font-medium">
-                          {item.empresa || "-"}
-                        </div>
-                      </td>
-
-
-                      <td>{item.acao || "-"}</td>
-
-                      <td>{item.responsavel || "-"}</td>
-
-                      <td>
-                        {item.prioridade ? (
-                          <span className="badge badge-outline">
-                            {item.prioridade}
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-
-                      <td>
-                        {item.status ? (
-                          <span className="badge badge-outline">
-                            {item.status}
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-warning btn-xs"
-                          onClick={() =>
-                            navigateWithFilter(
-                              item.origem === "cliente"
-                                ? "/crm/clientes"
-                                : "/crm/leads",
-                              { editar: String(item.id) }
-                            )
-                          }
-                        >
-                          Editar
-                        </button>
-                      </td>
-
-                    </tr>
-
-                  ))}
-
-                </tbody>
-
-              </table>
+            <div className="mt-4">
+              <ProximasAcoesTabela itens={dashboard.proximas_acoes.slice(0, 5)} />
             </div>
-
           )}
 
         </div>
-
       </div>
 
 

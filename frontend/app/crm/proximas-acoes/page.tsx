@@ -6,7 +6,7 @@ import Navbar from "../../../components/Navbar";
 import { navigateWithFilter } from "../../../lib/dashboardTheme";
 
 interface ProximaAcao {
-  origem: "lead" | "interacao";
+  origem: "lead" | "cliente" | string;
   id: number;
   lead_id?: number | null;
   cliente_id?: number | null;
@@ -17,6 +17,7 @@ interface ProximaAcao {
   horario: string | null;
   prioridade: string | null;
   status: string | null;
+  atrasada?: boolean;
 }
 
 const formatarData = (data?: string | null) => {
@@ -76,6 +77,8 @@ export default function ProximasAcoesPage() {
   const abrirOrigem = (item: ProximaAcao) => {
     if (item.origem === "lead") {
       navigateWithFilter("/crm/leads", { editar: String(item.id) });
+    } else if (item.origem === "cliente") {
+      navigateWithFilter("/crm/clientes", { editar: String(item.id) });
     } else if (item.lead_id) {
       navigateWithFilter("/crm/leads", { editar: String(item.lead_id) });
     } else if (item.cliente_id) {
@@ -95,7 +98,7 @@ export default function ProximasAcoesPage() {
             </p>
           </div>
           <div className="badge badge-lg">
-            {acoes.length} ação{acoes.length !== 1 ? "ões" : ""}
+            {acoes.length} {acoes.length === 1 ? "ação" : "ações"}
           </div>
         </div>
 
@@ -159,7 +162,7 @@ export default function ProximasAcoesPage() {
               </thead>
               <tbody>
                 {acoes.map((item, index) => {
-                  const atrasada = !!item.data && item.data < hoje && item.acao !== "Nenhuma";
+                  const atrasada = item.atrasada ?? (!!item.data && item.data < hoje && item.acao !== "Nenhuma");
                   return (
                     <tr key={`${item.origem}-${item.id}-${index}`}>
                       <td className="whitespace-nowrap">
@@ -169,7 +172,7 @@ export default function ProximasAcoesPage() {
                       </td>
                       <td>
                         <span className={item.origem === "lead" ? "badge badge-info badge-outline" : "badge badge-secondary badge-outline"}>
-                          {item.origem === "lead" ? "Lead" : "Interação"}
+                          {item.origem === "lead" ? "Lead" : "Cliente"}
                         </span>
                       </td>
                       <td className="font-medium">{item.empresa || "-"}</td>
